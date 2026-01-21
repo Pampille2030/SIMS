@@ -34,15 +34,11 @@ const ItemManagement = () => {
   const fetchItemsAndFuels = async () => {
     try {
       const res = await api.get('/inventory/items/');
-      
       const sortedItems = [...res.data].sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       );
       setItems(sortedItems);
-      
-      const fuelItems = sortedItems.filter(item => item.category === 'fuel');
-      setFuelItems(fuelItems);
-      
+      setFuelItems(sortedItems.filter(item => item.category === 'fuel'));
     } catch (err) {
       console.error('Error fetching items:', err);
     }
@@ -122,8 +118,8 @@ const ItemManagement = () => {
         payload = {
           ...payload,
           unit: formData.unit || defaultUnit,
-          quantity_to_add: parseFloat(formData.quantity) || 0,
-          reorder_level: parseFloat(formData.reorderLevel) || 10,
+          quantity_to_add: formData.quantity ? parseFloat(formData.quantity) : 0,
+          reorder_level: formData.reorderLevel ? parseFloat(formData.reorderLevel) : null, // nullable
         };
       }
 
@@ -162,9 +158,7 @@ const ItemManagement = () => {
 
   // Helper function to get vehicle plate number
   const getVehiclePlateNumber = (vehicleItem) => {
-    if (vehicleItem.plate_number) {
-      return vehicleItem.plate_number;
-    }
+    if (vehicleItem.plate_number) return vehicleItem.plate_number;
     if (vehicleItem.vehicle_display) {
       const match = vehicleItem.vehicle_display.match(/\((.*?)\)/);
       return match ? match[1] : '-';
@@ -190,9 +184,7 @@ const ItemManagement = () => {
 
       {/* Form */}
       <div className="bg-[#4B553A] p-6 rounded-lg shadow-md mb-6">
-        <h2 className="text-xl font-semibold mb-4 text-white">
-          Add New Item
-        </h2>
+        <h2 className="text-xl font-semibold mb-4 text-white">Add New Item</h2>
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -219,20 +211,15 @@ const ItemManagement = () => {
             <div>
               <label className="block text-white mb-1" htmlFor="itemName">Item Name</label>
               <input
-                list="itemList"
                 type="text"
                 id="itemName"
                 name="itemName"
                 value={formData.itemName}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Enter new item name"
                 required
               />
-              <datalist id="itemList">
-                {items.map(item => (
-                  <option key={item.id} value={item.name} />
-                ))}
-              </datalist>
             </div>
 
             {/* Vehicle-specific */}
@@ -318,7 +305,6 @@ const ItemManagement = () => {
                     onChange={handleChange}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
-                    required
                   />
                 </div>
               </>
@@ -336,7 +322,7 @@ const ItemManagement = () => {
         </form>
       </div>
 
-      {/* ---------------- VEHICLE TABLE (only Date, Name, and Plate Number) ---------------- */}
+      {/* ---------------- VEHICLE TABLE ---------------- */}
       {showVehicleTable && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h2 className="text-xl font-semibold mb-4">Existing Vehicles</h2>
@@ -396,7 +382,7 @@ const ItemManagement = () => {
                       <td className="py-2 px-4 border">{item.category_display || item.category}</td>
                       <td className="py-2 px-4 border">{item.quantity_in_stock}</td>
                       <td className="py-2 px-4 border">{item.unit || '-'}</td>
-                      <td className="py-2 px-4 border">{item.reorder_level}</td>
+                      <td className="py-2 px-4 border">{item.reorder_level ?? '-'}</td>
                     </tr>
                   ))}
                 </tbody>

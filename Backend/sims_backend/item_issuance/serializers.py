@@ -21,10 +21,9 @@ class VehicleSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             "id", "vehicle_name", "plate_number",
-            "current_mileage",
-            "fuel_type", "fuel_type_name", "fuel_type_item_id", "fuel_efficiency"
+            "fuel_type", "fuel_type_name", "fuel_type_item_id"
         ]
-        read_only_fields = ["id", "fuel_type_name", "fuel_type_item_id", "fuel_efficiency"]
+        read_only_fields = ["id", "fuel_type_name", "fuel_type_item_id"]
 
     def get_fuel_type_name(self, obj):
         try:
@@ -116,18 +115,12 @@ class IssueRecordSerializer(serializers.ModelSerializer):
     vehicle_plate = serializers.CharField(source="vehicle.plate_number", read_only=True)
     vehicle_fuel_type = serializers.SerializerMethodField()
 
-    previous_mileage = serializers.IntegerField(required=False, allow_null=True)
-    current_mileage = serializers.IntegerField(required=False, allow_null=True)
-    fuel_litres = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
-    distance_traveled = serializers.SerializerMethodField()
-    fuel_efficiency = serializers.SerializerMethodField()
-
     class Meta:
         model = IssueRecord
         fields = "__all__"
         read_only_fields = (
-            "distance_traveled", "fuel_efficiency", "approval_date",
-            "approved_by", "actual_return_date", "issue_id", "issue_date"
+            "approval_date", "approved_by", "actual_return_date", 
+            "issue_id", "issue_date"
         )
 
     def get_issued_to_name(self, obj):
@@ -153,34 +146,10 @@ class IssueRecordSerializer(serializers.ModelSerializer):
             pass
         return None
 
-    def get_distance_traveled(self, obj):
-        if obj.current_mileage is not None and obj.previous_mileage is not None:
-            return obj.current_mileage - obj.previous_mileage
-        return None
-
-    def get_fuel_efficiency(self, obj):
-        # Use previous fuel issuance for calculation
-        if obj.issue_type == 'fuel' and obj.fuel_type == 'vehicle' and obj.vehicle:
-            prev_issue = IssueRecord.objects.filter(
-                vehicle=obj.vehicle,
-                issue_type='fuel',
-                fuel_type='vehicle',
-                status='Issued',
-                issue_date__lt=obj.issue_date
-            ).order_by('-issue_date').first()
-            if prev_issue and prev_issue.fuel_litres and obj.current_mileage and obj.previous_mileage:
-                distance = obj.current_mileage - obj.previous_mileage
-                return float(distance) / float(prev_issue.fuel_litres)
-        # fallback to stored value
-        return getattr(obj, "fuel_efficiency", None)
-
     def validate(self, data):
         issue_type = data.get('issue_type')
         fuel_type = data.get('fuel_type')
         vehicle = data.get('vehicle')
-        fuel_litres = data.get('fuel_litres')
-        current_mileage = data.get('current_mileage')
-        previous_mileage = data.get('previous_mileage')
         items = data.get('items', [])
 
         if issue_type == 'fuel' and not fuel_type:
@@ -189,20 +158,6 @@ class IssueRecordSerializer(serializers.ModelSerializer):
         if issue_type == 'fuel' and fuel_type == 'vehicle':
             if not vehicle:
                 raise serializers.ValidationError({"vehicle": "Vehicle must be selected for vehicle fuel"})
-            if not fuel_litres or fuel_litres <= 0:
-                raise serializers.ValidationError({"fuel_litres": "Fuel litres must be greater than 0"})
-            if not current_mileage or current_mileage <= 0:
-                raise serializers.ValidationError({"current_mileage": "Current mileage must be positive"})
-
-            # Auto-set previous mileage
-            if previous_mileage is None:
-                previous_mileage = vehicle.current_mileage or 0
-                data['previous_mileage'] = previous_mileage
-
-            if current_mileage <= previous_mileage:
-                raise serializers.ValidationError({
-                    "current_mileage": f"Current mileage ({current_mileage}) must be greater than previous mileage ({previous_mileage})"
-                })
 
         return data
 
@@ -222,28 +177,6 @@ class IssueRecordSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             instance = super().update(instance, validated_data)
-
-            # Update vehicle mileage and fuel efficiency
-            if instance.issue_type == 'fuel' and instance.fuel_type == 'vehicle' and instance.vehicle:
-                vehicle = instance.vehicle
-                if instance.current_mileage and instance.previous_mileage:
-                    instance.distance_traveled = instance.current_mileage - instance.previous_mileage
-
-                    prev_issue = IssueRecord.objects.filter(
-                        vehicle=vehicle,
-                        issue_type='fuel',
-                        fuel_type='vehicle',
-                        status='Issued',
-                        issue_date__lt=instance.issue_date
-                    ).order_by('-issue_date').first()
-
-                    if prev_issue and prev_issue.fuel_litres:
-                        instance.fuel_efficiency = Decimal(instance.distance_traveled) / Decimal(prev_issue.fuel_litres)
-                        vehicle.fuel_efficiency = instance.fuel_efficiency
-
-                    vehicle.current_mileage = instance.current_mileage
-                    vehicle.save()
-                    instance.save(update_fields=["distance_traveled", "fuel_efficiency"])
 
         return instance
 
@@ -281,26 +214,6 @@ class IssueOutSerializer(serializers.Serializer):
             for issue_item in issue_record.items.all():
                 issue_item.item.quantity_in_stock -= issue_item.quantity_issued
                 issue_item.item.save()
-
-            # Vehicle mileage and fuel efficiency
-            if issue_record.issue_type == 'fuel' and issue_record.fuel_type == 'vehicle' and issue_record.vehicle:
-                vehicle = issue_record.vehicle
-                vehicle.current_mileage = issue_record.current_mileage
-                prev_issue = IssueRecord.objects.filter(
-                    vehicle=vehicle,
-                    issue_type='fuel',
-                    fuel_type='vehicle',
-                    status='Issued',
-                    issue_date__lt=issue_record.issue_date
-                ).order_by('-issue_date').first()
-
-                if prev_issue and prev_issue.fuel_litres and issue_record.previous_mileage and issue_record.current_mileage:
-                    distance = issue_record.current_mileage - issue_record.previous_mileage
-                    issue_record.distance_traveled = distance
-                    issue_record.fuel_efficiency = Decimal(distance) / Decimal(prev_issue.fuel_litres)
-                    vehicle.fuel_efficiency = issue_record.fuel_efficiency
-
-                vehicle.save()
 
             issue_record.status = 'Issued'
             issue_record.save()

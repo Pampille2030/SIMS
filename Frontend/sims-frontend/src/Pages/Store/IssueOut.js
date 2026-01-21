@@ -89,10 +89,6 @@ const VehicleFuelTable = ({ records, handleConfirmIssue, handleCancelIssue, newR
             <th className="border px-3 py-2">Vehicle</th>
             <th className="border px-3 py-2">Fuel (L)</th>
             <th className="border px-3 py-2">Issued To</th>
-            <th className="border px-3 py-2">Previous Mileage</th>
-            <th className="border px-3 py-2">Current Mileage</th>
-            <th className="border px-3 py-2">Distance (km)</th>
-            <th className="border px-3 py-2">Efficiency (km/L)</th>
             <th className="border px-3 py-2">Status</th>
             <th className="border px-3 py-2">Actions</th>
           </tr>
@@ -103,32 +99,16 @@ const VehicleFuelTable = ({ records, handleConfirmIssue, handleCancelIssue, newR
               `${record.vehicle_name || 'Vehicle'} (${record.vehicle_plate})` : 
               'N/A';
             
-            // Use distance_traveled from backend calculation
-            const distance = record.distance_traveled || 0;
-            
-            // Use fuel_efficiency calculated by backend
-            const efficiency = record.fuel_efficiency;
+            // Get fuel quantity from items
+            const fuelQuantity = record.items && record.items.length > 0 
+              ? record.items[0].quantity_issued 
+              : record.fuel_litres || 0;
             
             return (
               <tr key={record.id} id={`record-${record.id}`} className={record.id === newRecordId ? 'bg-green-100' : ''}>
                 <td className="border px-3 py-2">{vehicleDisplay}</td>
-                <td className="border px-3 py-2">{record.fuel_litres}L</td>
+                <td className="border px-3 py-2">{fuelQuantity}L</td>
                 <td className="border px-3 py-2">{record.issued_to_name}</td>
-                <td className="border px-3 py-2">{record.previous_mileage || 0}</td>
-                <td className="border px-3 py-2">{record.current_mileage || 0}</td>
-                <td className="border px-3 py-2">{distance} km</td>
-                <td className="border px-3 py-2 font-medium">
-                  <div className={`${
-                    efficiency > 15 ? 'text-green-600' : 
-                    efficiency < 5 ? 'text-red-600' : 
-                    'text-blue-600'
-                  }`}>
-                    {efficiency ? `${Number(efficiency).toFixed(2)} km/L` : 'N/A'}
-                  </div>
-                  {record.status === 'Issued' && !efficiency && (
-                    <div className="text-xs text-gray-500">First issuance</div>
-                  )}
-                </td>
                 <td className="border px-3 py-2">
                   <span className={`px-2 py-1 rounded text-xs ${
                     record.status === 'Issued' ? 'bg-green-100 text-green-800' :
@@ -160,7 +140,7 @@ const VehicleFuelTable = ({ records, handleConfirmIssue, handleCancelIssue, newR
           })}
           {vehicleFuelRecords.length === 0 && (
             <tr>
-              <td colSpan="9" className="text-center py-4">No vehicle fuel records found</td>
+              <td colSpan="5" className="text-center py-4">No vehicle fuel records found</td>
             </tr>
           )}
         </tbody>
@@ -196,7 +176,7 @@ const IssueOutPage = () => {
         setEmployees(employeesRes.data.filter(emp => emp.status === 'Active'));
         setVehicles(vehiclesRes.data);
 
-        // Fetch issuance records with fuel efficiency data
+        // Fetch issuance records
         const recordsRes = await api.get('/item_issuance/issuerecords/');
         setIssuedRecords(recordsRes.data);
       } catch (error) {
@@ -262,7 +242,6 @@ const IssueOutPage = () => {
       vehicleName: v.vehicle_name,
       fuelTypeName: v.fuel_type_name,
       fuelTypeItemId: v.fuel_type_item_id,
-      currentMileage: v.current_mileage || 0,
       fuelType: v.fuel_type_name ? ` - ${v.fuel_type_name}` : ''
     })), 
     [vehicles]
@@ -311,7 +290,7 @@ const IssueOutPage = () => {
       }
 
       if (formType === 'fuel' && fuelSubType === 'vehicle') {
-        if (!formData.employeeId || !formData.vehicleId || !formData.fuelLitres || !formData.currentMileage || !formData.reason) {
+        if (!formData.employeeId || !formData.vehicleId || !formData.fuelLitres || !formData.reason) {
           throw new Error('All fields are required');
         }
 
@@ -325,20 +304,9 @@ const IssueOutPage = () => {
         const fuelLitres = parseFloat(formData.fuelLitres);
         if (fuelLitres <= 0) throw new Error('Fuel litres must be > 0');
 
-        const currentMileage = parseInt(formData.currentMileage);
-        if (currentMileage < 0) throw new Error('Mileage must be positive');
-
-        const vehicleCurrentMileage = vehicle.current_mileage || 0;
-        
-        if (currentMileage <= vehicleCurrentMileage) {
-          throw new Error(`Current mileage (${currentMileage}) must be greater than vehicle's current mileage (${vehicleCurrentMileage})`);
-        }
-
         payload.items = [{ item_id: vehicle.fuel_type_item_id, quantity_issued: fuelLitres }];
-        payload.fuel_litres = fuelLitres;
         payload.vehicle = parseInt(formData.vehicleId);
         payload.fuel_type = 'vehicle';
-        payload.current_mileage = currentMileage;
       }
 
       if (formType === 'fuel' && fuelSubType === 'machine') {
@@ -351,7 +319,6 @@ const IssueOutPage = () => {
         if (quantity <= 0) throw new Error('Quantity must be > 0');
 
         payload.items = [{ item_id: selectedFuelItem.id, quantity_issued: quantity }];
-        payload.fuel_litres = quantity;
         payload.fuel_type = 'machine';
       }
       
@@ -389,8 +356,6 @@ const IssueOutPage = () => {
           if (errorData.vehicle) errorMessage = `Vehicle: ${errorData.vehicle}`;
           else if (errorData.fuel_type) errorMessage = `Fuel Type: ${errorData.fuel_type}`;
           else if (errorData.items) errorMessage = `Items: ${errorData.items}`;
-          else if (errorData.fuel_litres) errorMessage = `Fuel Litres: ${errorData.fuel_litres}`;
-          else if (errorData.current_mileage) errorMessage = `Current Mileage: ${errorData.current_mileage}`;
           else if (errorData.non_field_errors) errorMessage = errorData.non_field_errors.join(', ');
           else {
             const firstError = Object.values(errorData)[0];
@@ -413,7 +378,7 @@ const IssueOutPage = () => {
       try {
         await api.post(`/item_issuance/issuerecords/${recordId}/issue_out/`);
         
-        // Refresh the records to get updated fuel efficiency
+        // Refresh the records
         if (formType === 'fuel' && fuelSubType === 'vehicle') {
           fetchVehicleFuelRecords();
         } else {
@@ -541,19 +506,6 @@ const IssueOutPage = () => {
                 min="0.1"
                 step="0.1"
                 placeholder="Enter litres"
-              />
-            </div>
-            <div>
-              <label className="block text-white mb-1">Current Mileage</label>
-              <input 
-                type="number" 
-                name="currentMileage" 
-                value={formData.currentMileage || ''} 
-                onChange={handleChange} 
-                className="w-full border rounded px-3 py-2" 
-                required 
-                min="0"
-                placeholder={`Enter mileage`}
               />
             </div>
           </>

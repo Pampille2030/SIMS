@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'returns',
     'attendances',
     'WriteReport',
+    'StockQuantity',
+    'porequest',
 ]
 
 # --------------------------------------------------

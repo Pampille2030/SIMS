@@ -48,16 +48,6 @@ const ProfileModal = ({ isOpen, onClose }) => {
               <span className="font-semibold text-gray-700">Role:</span>
               <span className="capitalize">{profile.role}</span>
             </div>
-
-            <div className="flex justify-between">
-              <span className="font-semibold text-gray-700">Date Joined:</span>
-              <span>{new Date(profile.date_joined).toLocaleDateString()}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="font-semibold text-gray-700">Last Login:</span>
-              <span>{new Date(profile.last_login).toLocaleString()}</span>
-            </div>
           </div>
         ) : (
           <p className="text-gray-500">Loading profile...</p>

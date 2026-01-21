@@ -17,9 +17,6 @@ const IssueOutContainer = () => {
   const [petrolForm, setPetrolForm] = useState({
     issueTo: '',
     vehicleReg: '',
-    previousMileage: '',
-    currentMileage: '',
-    previousIssuedLitres: '',
     requestedLitres: '',
   });
 
@@ -42,16 +39,6 @@ const IssueOutContainer = () => {
 
     fetchIssuedItems();
   }, []);
-
-  const calculateDistancePerLitre = () => {
-    const prev = parseFloat(petrolForm.previousMileage);
-    const curr = parseFloat(petrolForm.currentMileage);
-    const litres = parseFloat(petrolForm.previousIssuedLitres);
-    if (!isNaN(prev) && !isNaN(curr) && !isNaN(litres) && litres !== 0) {
-      return ((curr - prev) / litres).toFixed(2);
-    }
-    return '';
-  };
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -86,11 +73,7 @@ const IssueOutContainer = () => {
             issued_by: localStorage.getItem('username'),
             issue_type: 'petrol',
             vehicle_reg_no: petrolForm.vehicleReg,
-            previous_mileage: petrolForm.previousMileage,
-            current_mileage: petrolForm.currentMileage,
-            previous_litres: petrolForm.previousIssuedLitres,
             current_litres: petrolForm.requestedLitres,
-            distance_per_litre: calculateDistancePerLitre(),
             reason: '',
             status: 'Pending',
             approval_status: 'Pending',
@@ -114,9 +97,6 @@ const IssueOutContainer = () => {
         setPetrolForm({
           issueTo: '',
           vehicleReg: '',
-          previousMileage: '',
-          currentMileage: '',
-          previousIssuedLitres: '',
           requestedLitres: '',
         });
       }
@@ -203,7 +183,6 @@ const IssueOutContainer = () => {
         handleChange={handleChange}
         petrolForm={petrolForm}
         handlePetrolChange={handlePetrolChange}
-        calculateDistancePerLitre={calculateDistancePerLitre}
         handleSubmit={handleSubmit}
       />
 

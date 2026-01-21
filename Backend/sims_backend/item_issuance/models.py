@@ -35,11 +35,6 @@ class IssueRecord(models.Model):
 
     # Vehicle fuel tracking
     vehicle = models.ForeignKey('inventory.Vehicle', null=True, blank=True, on_delete=models.PROTECT)
-    previous_mileage = models.PositiveIntegerField(null=True, blank=True)
-    current_mileage = models.PositiveIntegerField(null=True, blank=True)
-    fuel_litres = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    distance_traveled = models.PositiveIntegerField(null=True, blank=True)
-    fuel_efficiency = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         ordering = ['-issue_date']
@@ -53,47 +48,16 @@ class IssueRecord(models.Model):
             if self.fuel_type == 'vehicle':
                 if not self.vehicle:
                     raise ValidationError("Vehicle must be selected for vehicle fuel")
-                if not self.fuel_litres or self.fuel_litres <= 0:
-                    raise ValidationError("Fuel litres must be specified for vehicle fuel")
-                if not self.current_mileage:
-                    raise ValidationError("Current mileage must be specified for vehicle fuel")
-                if self.vehicle and self.current_mileage <= self.vehicle.current_mileage:
-                    raise ValidationError(f"Current mileage ({self.current_mileage}) must be greater than vehicle's current mileage ({self.vehicle.current_mileage})")
-                if self.previous_mileage and self.current_mileage < self.previous_mileage:
-                    raise ValidationError("Current mileage cannot be less than previous mileage")
-
-            elif self.fuel_type == 'machine' and self.vehicle:
-                raise ValidationError("Vehicle should not be selected for machine fuel")
 
         elif self.issue_type != 'fuel' and self.fuel_type:
             raise ValidationError("Fuel type should only be specified for fuel issues")
 
     def save(self, *args, **kwargs):
-        """Auto-generate issue_id, calculate mileage and efficiency, update vehicle."""
+        """Auto-generate issue_id."""
         if not self.issue_id:
             self.issue_id = f"ISSUE-{uuid.uuid4().hex[:6].upper()}"
 
-        if self.is_vehicle_fuel and self.vehicle and not self.previous_mileage:
-            self.previous_mileage = self.vehicle.current_mileage
-
-        if self.is_vehicle_fuel and self.previous_mileage and self.current_mileage and self.fuel_litres and self.fuel_litres > 0:
-            self.distance_traveled = self.current_mileage - self.previous_mileage
-            if self.distance_traveled > 0:
-                self.fuel_efficiency = Decimal(self.distance_traveled) / Decimal(self.fuel_litres)
-
         super().save(*args, **kwargs)
-
-        # Update vehicle current mileage and efficiency
-        if self.is_vehicle_fuel and self.status == 'Issued' and self.vehicle and self.fuel_litres and self.current_mileage:
-            try:
-                vehicle = self.vehicle
-                vehicle.current_mileage = self.current_mileage
-                efficiency = vehicle.calculate_fuel_efficiency_from_record(self)
-                if efficiency is not None:
-                    vehicle.fuel_efficiency = efficiency
-                vehicle.save()
-            except Exception as e:
-                logger.error(f"Error updating vehicle fuel efficiency: {e}")
 
     def __str__(self):
         return f"Issue {self.issue_id} to {self.issued_to}"
@@ -105,14 +69,6 @@ class IssueRecord(models.Model):
     @property
     def is_machine_fuel(self):
         return self.issue_type == 'fuel' and self.fuel_type == 'machine'
-
-    def calculate_fuel_efficiency(self):
-        """Calculate fuel efficiency using the standard formula."""
-        if self.is_vehicle_fuel and self.previous_mileage and self.current_mileage and self.fuel_litres and self.fuel_litres > 0:
-            distance = self.current_mileage - self.previous_mileage
-            if distance > 0:
-                return Decimal(distance) / Decimal(self.fuel_litres)
-        return None
 
 
 class IssueItem(models.Model):

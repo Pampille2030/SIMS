@@ -73,8 +73,6 @@ class ItemViewSet(viewsets.ModelViewSet):
                     "name": vehicle.fuel_type.item.name,
                     "unit": vehicle.fuel_type.item.unit,
                 } if vehicle.fuel_type else None,
-                "fuel_efficiency": float(vehicle.fuel_efficiency or 0),
-                "current_mileage": vehicle.current_mileage,
             })
 
         return Response(data)
@@ -108,8 +106,6 @@ class ItemViewSet(viewsets.ModelViewSet):
                     "name": v.fuel_type.item.name,
                     "unit": v.fuel_type.item.unit,
                 } if v.fuel_type else None,
-                "fuel_efficiency": float(v.fuel_efficiency or 0),
-                "current_mileage": v.current_mileage,
             } for v in Vehicle.objects.select_related("fuel_type__item")
         }
 
@@ -147,7 +143,7 @@ class FuelTypesView(APIView):
                 "name": f.item.name,
                 "unit": f.item.unit,
                 "current_stock": float(f.item.quantity_in_stock),
-                "reorder_level": float(f.item.reorder_level),
+                "reorder_level": float(f.item.reorder_level) if f.item.reorder_level is not None else None,
             } for f in fuels
         ])
 
@@ -179,28 +175,13 @@ class IssuedItemViewSet(viewsets.ModelViewSet):
         validated_data = serializer.validated_data
         item = validated_data["item"]
         vehicle_id = request.data.get("vehicle")
-        current_mileage = request.data.get("current_mileage")
 
         if item.category == "fuel":
             if not vehicle_id:
                 return Response({"error": "Vehicle is required for fuel issuance"}, status=status.HTTP_400_BAD_REQUEST)
-            if not current_mileage:
-                return Response({"error": "Current mileage is required for vehicle fuel issuance"}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             issued_item = serializer.save()
-
-            if item.category == "fuel" and vehicle_id:
-                try:
-                    vehicle = Vehicle.objects.select_for_update().get(id=vehicle_id)
-                    vehicle.current_mileage = current_mileage
-                    efficiency = vehicle.calculate_fuel_efficiency(issued_item)
-                    if efficiency is not None: vehicle.fuel_efficiency = efficiency
-                    vehicle.save()
-                    issued_item.vehicle = vehicle
-                    issued_item.save()
-                except Vehicle.DoesNotExist:
-                    return Response({"error": f"Vehicle {vehicle_id} does not exist"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(self.get_serializer(issued_item).data, status=status.HTTP_201_CREATED)
 
@@ -254,37 +235,30 @@ class VehicleViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     @action(detail=True, methods=["get"])
-    def efficiency(self, request, pk=None):
+    def fuel_history(self, request, pk=None):
         vehicle = self.get_object()
-        fuel_issuances = IssuedItem.objects.filter(vehicle=vehicle, item__category="fuel").order_by("issue_date")
-
-        efficiency_history = []
-        total_distance, total_fuel = 0, 0
-
-        for i, issuance in enumerate(fuel_issuances):
-            entry = {"issue_date": issuance.issue_date, "fuel_litres": float(issuance.issued_quantity), "mileage": issuance.current_mileage}
-            if i > 0:
-                prev = fuel_issuances[i-1]
-                if prev.issued_quantity > 0 and issuance.current_mileage and prev.current_mileage:
-                    distance = issuance.current_mileage - prev.current_mileage
-                    eff = distance / float(prev.issued_quantity)
-                    entry.update({"distance_traveled": distance, "fuel_efficiency": round(eff,2), "previous_mileage": prev.current_mileage, "previous_fuel_litres": float(prev.issued_quantity)})
-                    total_distance += distance
-                    total_fuel += float(prev.issued_quantity)
-            efficiency_history.append(entry)
-
-        overall_efficiency = round(total_distance / total_fuel, 2) if total_fuel > 0 else 0
+        fuel_issuances = IssuedItem.objects.filter(
+            vehicle=vehicle, 
+            item__category="fuel"
+        ).select_related("item", "employee").order_by("-issue_date")
+        
+        history = []
+        for issuance in fuel_issuances:
+            history.append({
+                "id": issuance.id,
+                "issue_date": issuance.issue_date,
+                "employee": issuance.employee.name,
+                "fuel_type": issuance.item.name,
+                "fuel_quantity": float(issuance.issued_quantity),
+                "status": issuance.status,
+                "is_active": issuance.is_active
+            })
+        
         return Response({
             "vehicle": vehicle.item.name,
             "plate_number": vehicle.plate_number,
             "fuel_type": vehicle.fuel_type.item.name if vehicle.fuel_type else None,
-            "current_mileage": vehicle.current_mileage,
-            "current_fuel_efficiency": float(vehicle.fuel_efficiency or 0),
-            "overall_efficiency": overall_efficiency,
-            "total_distance_traveled": total_distance,
-            "total_fuel_consumed": total_fuel,
-            "formula_explanation": "fuel_efficiency = (current_mileage - previous_mileage) / previous_issued_fuel",
-            "efficiency_history": efficiency_history
+            "fuel_history": history
         })
 
 

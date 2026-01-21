@@ -16,10 +16,15 @@ class ItemSerializer(serializers.ModelSerializer):
     tool_fuel_type = serializers.IntegerField(write_only=True, required=False)
     condition = serializers.CharField(write_only=True, default="New")
 
+    # Make reorder_level optional
+    reorder_level = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+
     class Meta:
         model = Item
         fields = "__all__"
-        read_only_fields = ["quantity_in_stock", "vehicle_display", "requires_approval", "reorder_level"]
+        read_only_fields = ["quantity_in_stock", "vehicle_display", "requires_approval"]
 
     def get_vehicle_display(self, obj):
         if hasattr(obj, "vehicle"):
@@ -99,57 +104,22 @@ class IssuedItemSerializer(serializers.ModelSerializer):
 
     vehicle_plate = serializers.SerializerMethodField(read_only=True)
     vehicle_name = serializers.SerializerMethodField(read_only=True)
-    previous_mileage = serializers.SerializerMethodField(read_only=True)
-    distance_traveled = serializers.SerializerMethodField(read_only=True)
-    temp_efficiency = serializers.SerializerMethodField(read_only=True)
-    calculated_efficiency = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = IssuedItem
         fields = [
             'id', 'employee', 'item', 'issued_quantity', 'returned_quantity',
-            'issue_date', 'expected_return_date', 'is_active', 'current_mileage',
+            'issue_date', 'expected_return_date', 'is_active',
             'item_name', 'employee_name', 'category_display', 'remaining_quantity',
-            'vehicle_plate', 'vehicle_name', 'previous_mileage',
-            'distance_traveled', 'temp_efficiency', 'calculated_efficiency', 'status'
+            'vehicle_plate', 'vehicle_name', 'status'
         ]
-        read_only_fields = ['returned_quantity', 'issue_date', 'is_active', 'remaining_quantity',
-                            'temp_efficiency', 'calculated_efficiency']
-
-    def _get_previous_issuance(self, obj):
-        """Fetch the last issued fuel for this vehicle."""
-        if not hasattr(obj, "_previous_issuance"):
-            obj._previous_issuance = IssuedItem.objects.filter(
-                vehicle=obj.vehicle,
-                item__category='fuel',
-                status='Issued'
-            ).exclude(pk=obj.pk).order_by('-issue_date').first()
-        return obj._previous_issuance
+        read_only_fields = ['returned_quantity', 'issue_date', 'is_active', 'remaining_quantity']
 
     def get_vehicle_plate(self, obj):
         return obj.vehicle.plate_number if obj.vehicle else None
 
     def get_vehicle_name(self, obj):
         return obj.vehicle.item.name if obj.vehicle else None
-
-    def get_previous_mileage(self, obj):
-        previous = self._get_previous_issuance(obj)
-        return previous.current_mileage if previous else 0
-
-    def get_distance_traveled(self, obj):
-        prev_mileage = self.get_previous_mileage(obj)
-        if obj.current_mileage is not None:
-            return obj.current_mileage - prev_mileage
-        return None
-
-    def get_temp_efficiency(self, obj):
-        """Efficiency calculated at request creation for MD/SM display."""
-        previous = self._get_previous_issuance(obj)
-        if previous and obj.current_mileage and previous.issued_quantity > 0:
-            distance = obj.current_mileage - previous.current_mileage
-            if distance > 0:
-                return round(distance / float(previous.issued_quantity), 2)
-        return None
 
 
 # ----------------------------- EMPLOYEE SERIALIZER -----------------------------
@@ -164,34 +134,9 @@ class VehicleSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.name', read_only=True)
     plate_number = serializers.CharField(read_only=True)
     fuel_type_name = serializers.CharField(source='fuel_type.item.name', read_only=True)
-    fuel_efficiency = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    current_mileage = serializers.IntegerField(read_only=True)
-    fuel_issuance_history = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Vehicle
         fields = [
-            'id', 'item_name', 'plate_number', 'fuel_type_name',
-            'fuel_efficiency', 'current_mileage', 'fuel_issuance_history'
+            'id', 'item_name', 'plate_number', 'fuel_type_name'
         ]
-
-    def get_fuel_issuance_history(self, obj):
-        history = []
-        issuances = obj.fuel_issuances.filter(status='Issued').order_by('issue_date')
-        for i, issuance in enumerate(issuances):
-            efficiency = None
-            if i > 0:
-                previous = issuances[i-1]
-                if previous.issued_quantity > 0 and issuance.current_mileage and previous.current_mileage:
-                    distance = issuance.current_mileage - previous.current_mileage
-                    if distance > 0:
-                        efficiency = round(distance / float(previous.issued_quantity), 2)
-            history.append({
-                'id': issuance.id,
-                'issue_date': issuance.issue_date,
-                'fuel_litres': float(issuance.issued_quantity),
-                'mileage': issuance.current_mileage,
-                'efficiency_km_per_l': efficiency,
-                'distance_from_previous': issuance.current_mileage - issuances[i-1].current_mileage if i > 0 else None
-            })
-        return history

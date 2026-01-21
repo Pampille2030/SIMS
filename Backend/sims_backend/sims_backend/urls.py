@@ -16,6 +16,8 @@ urlpatterns = [
     path('api/notifications/', include('notifications_app.urls')),
     path("api/returns/", include("returns.urls")),
     path("api/", include("WriteReport.urls")),
+    path('api/stockquantity/', include('StockQuantity.urls')),
+    path("api/porequests/", include("porequest.urls")),
 ]
 
 #  serve uploaded invoice PDFs

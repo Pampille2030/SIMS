@@ -39,9 +39,11 @@ const Sidebar = ({ isOpen }) => {
               <div className="ml-4 mt-2 space-y-2 text-base">
                 <NavLink to="/inventory/issue-out" className={navStyle}>Issue Out</NavLink>
                 <NavLink to="/inventory/newitem" className={navStyle}>New Item</NavLink>
+               <NavLink to="purchaserequest" className={navStyle}>Purchase Request</NavLink>
                 <NavLink to="/inventory/purchase-order" className={navStyle}>Purchase Order</NavLink>
                 <NavLink to="/inventory/stock-in" className={navStyle}>Stock In</NavLink>
                 <NavLink to="/inventory/return-item" className={navStyle}>Return Item</NavLink>
+
               </div>
             )}
           </div>
@@ -50,19 +52,27 @@ const Sidebar = ({ isOpen }) => {
 {/* Managing Director */}
 {isManagingDirector && (
   <div className="space-y-2">
-    <NavLink to="/orderapproval" className={navStyle}>
-      <span className="mr-2">✅</span> Order Approval
+
+    <NavLink to="/PORequest" className={navStyle}>
+      <span className="mr-2">✅</span> Purchase Order Request
     </NavLink>
+    <NavLink to="/orderapproval" className={navStyle}>
+      <span className="mr-2">✅</span>Purchase Order Approval
+    </NavLink>
+
+        
     <NavLink to="/issueoutApproval" className={navStyle}>
       <span className="mr-2">📤</span> Issue Out Approval
     </NavLink>
     <NavLink to="/VehicleFuelApproval" className={navStyle}>
-      <span className="mr-2">📤</span> Vehicle approval
+      <span className="mr-2">📤</span> Vehicle Fuel Approval
     </NavLink>
+        
     
     <NavLink to="/EmployeeApproval" className={navStyle}>
-      <span className="mr-2">👥</span> Employee Approval
+      <span className="mr-2">👥</span>New Employee Approval
     </NavLink>
+
   </div>
 )}
 
@@ -98,10 +108,13 @@ const Sidebar = ({ isOpen }) => {
           {reportsOpen && (
             <div className="ml-4 mt-2 space-y-2 text-base">
               <NavLink to="/General/reports" className={navStyle}>
-                <span className="mr-2">📋</span> General Report
+                <span className="mr-2">📋</span> Inventory Reports
               </NavLink>
+                  <NavLink to="/inventory/stock" className={navStyle}>
+      <span className="mr-2"> 📋 </span> Stock Quantity
+    </NavLink>
           <NavLink to="/reports/write" className={navStyle}>
-            <span className="mr-2">📝</span> Write Report
+            <span className="mr-2">📝</span> Write Reports
           </NavLink>
 
             </div>

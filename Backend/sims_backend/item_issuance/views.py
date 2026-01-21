@@ -316,7 +316,7 @@ class IssueRecordViewSet(viewsets.ModelViewSet):
 
 
 # =============================================================
-# VEHICLE VIEWSET (UNCHANGED LOGIC)
+# VEHICLE VIEWSET (UPDATED WITHOUT MILEAGE TRACKING)
 # =============================================================
 
 class VehicleViewSet(viewsets.ModelViewSet):
@@ -329,103 +329,43 @@ class VehicleViewSet(viewsets.ModelViewSet):
         vehicle_type = self.request.query_params.get("type")
         return q.filter(vehicle_type=vehicle_type) if vehicle_type else q
 
-
-    @action(detail=True, methods=['patch'])
-    def update_mileage(self, request, pk=None):
-        vehicle = self.get_object()
-        new_mileage = request.data.get('current_mileage')
-        
-        if not new_mileage:
-            return Response(
-                {'error': 'Mileage is required'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            new_mileage = int(new_mileage)
-            if new_mileage < vehicle.current_mileage:
-                return Response(
-                    {'error': 'New mileage cannot be lower than current mileage'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            vehicle.current_mileage = new_mileage
-            vehicle.save()
-            
-            return Response({
-                'message': 'Mileage updated successfully', 
-                'current_mileage': vehicle.current_mileage
-            })
-            
-        except ValueError:
-            return Response(
-                {'error': 'Mileage must be a valid number'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
     @action(detail=False, methods=['get'])
     def available(self, request):
         vehicles = Vehicle.objects.all()
         return Response(self.get_serializer(vehicles, many=True).data)
 
     @action(detail=True, methods=['get'])
-    def issue_history(self, request, pk=None):
+    def fuel_history(self, request, pk=None):
         vehicle = self.get_object()
-        issues = IssueRecord.objects.filter(
+        fuel_issues = IssueRecord.objects.filter(
             vehicle=vehicle, 
             issue_type='fuel',
             fuel_type='vehicle'
-        ).order_by('-issue_date')[:10]
-        
-        data = []
-        for issue in issues:
-            data.append({
-                'issue_id': issue.issue_id,
-                'issue_date': issue.issue_date,
-                'fuel_litres': issue.fuel_litres,
-                'previous_mileage': issue.previous_mileage,
-                'current_mileage': issue.current_mileage,
-                'distance_traveled': issue.distance_traveled,
-                'fuel_efficiency': float(issue.fuel_efficiency) if issue.fuel_efficiency else None,
-                'issued_to': f"{issue.issued_to.first_name} {issue.issued_to.last_name}" if issue.issued_to else None,
-                'status': issue.status,
-                'approval_status': issue.approval_status
-            })
-        
-        return Response(data)
-
-    @action(detail=True, methods=['get'])
-    def fuel_efficiency_history(self, request, pk=None):
-        vehicle = self.get_object()
-        issues = IssueRecord.objects.filter(
-            vehicle=vehicle, 
-            issue_type='fuel',
-            fuel_type='vehicle',
-            status='Issued'
+        ).select_related(
+            'issued_to', 'issued_by', 'approved_by'
         ).order_by('-issue_date')[:20]
         
-        data = []
-        for issue in issues:
-            if issue.previous_mileage and issue.current_mileage and issue.fuel_litres:
-                distance_traveled = issue.current_mileage - issue.previous_mileage
-                efficiency_calc = distance_traveled / float(issue.fuel_litres) if issue.fuel_litres > 0 else 0
-                
-                data.append({
-                    'issue_id': issue.issue_id,
-                    'issue_date': issue.issue_date,
-                    'fuel_litres': float(issue.fuel_litres),
-                    'previous_mileage': issue.previous_mileage,
-                    'current_mileage': issue.current_mileage,
-                    'distance_traveled': distance_traveled,
-                    'fuel_efficiency': float(issue.fuel_efficiency) if issue.fuel_efficiency else None,
-                    'calculated_efficiency': efficiency_calc,
-                    'issued_to': f"{issue.issued_to.first_name} {issue.issued_to.last_name}" if issue.issued_to else None,
-                    'formula': f"({issue.current_mileage} - {issue.previous_mileage}) / {issue.fuel_litres} = {efficiency_calc:.2f} km/l"
-                })
+        history = []
+        for issue in fuel_issues:
+            # Get fuel quantity from the first item
+            fuel_quantity = None
+            if issue.items.exists():
+                fuel_quantity = issue.items.first().quantity_issued
+            
+            history.append({
+                'issue_id': issue.issue_id,
+                'issue_date': issue.issue_date,
+                'fuel_quantity': float(fuel_quantity) if fuel_quantity else None,
+                'issued_to': f"{issue.issued_to.first_name} {issue.issued_to.last_name}" if issue.issued_to else None,
+                'issued_by': f"{issue.issued_by.first_name} {issue.issued_by.last_name}" if issue.issued_by else None,
+                'status': issue.status,
+                'approval_status': issue.approval_status,
+                'approval_date': issue.approval_date
+            })
         
         return Response({
-            'vehicle': vehicle.plate_number,
-            'current_fuel_efficiency': float(vehicle.fuel_efficiency) if vehicle.fuel_efficiency else None,
-            'current_mileage': vehicle.current_mileage,
-            'history': data
+            'vehicle': vehicle.item.name,
+            'plate_number': vehicle.plate_number,
+            'fuel_type': vehicle.fuel_type.item.name if vehicle.fuel_type else None,
+            'fuel_history': history
         })

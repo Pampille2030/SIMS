@@ -25,12 +25,12 @@ const RegisterEmployee = () => {
   const [tableLoading, setTableLoading] = useState(true);
 
   // ----------------------
-  // Fetch all employees for HR table
+  // Fetch all employees
   // ----------------------
   const fetchEmployees = async () => {
     setTableLoading(true);
     try {
-      const res = await api.get("employees/"); // Fetch all employees
+      const res = await api.get("employees/");
       setEmployees(res.data);
     } catch (err) {
       console.error("Error fetching employees:", err);
@@ -64,7 +64,7 @@ const RegisterEmployee = () => {
 
       await api.post("employees/", cleanedForm);
 
-      setSuccess("Employee has been submitted. Wait for MD approval.");
+      setSuccess("Employee submitted successfully. Awaiting MD approval.");
 
       setForm({
         first_name: "",
@@ -94,36 +94,11 @@ const RegisterEmployee = () => {
         } else {
           setError(Object.values(data).flat().join(" | "));
         }
-      } else if (err.request) {
-        setError("Cannot connect to server. Please check if the backend is running.");
       } else {
         setError("Failed to register employee");
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  // ----------------------
-  // Approve / Reject Actions
-  // ----------------------
-  const handleApprove = async (id) => {
-    try {
-      await api.post(`employees/${id}/approve/`);
-      fetchEmployees();
-    } catch (err) {
-      console.error("Approval error:", err);
-      alert("Failed to approve employee.");
-    }
-  };
-
-  const handleReject = async (id) => {
-    try {
-      await api.post(`employees/${id}/reject/`);
-      fetchEmployees();
-    } catch (err) {
-      console.error("Rejection error:", err);
-      alert("Failed to reject employee.");
     }
   };
 
@@ -170,18 +145,15 @@ const RegisterEmployee = () => {
             disabled={loading}
             className="w-full text-white font-bold py-2 px-4 rounded transition"
             style={{ backgroundColor: "#69795f" }}
-            onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#4a533b")}
-            onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "#69795f")}
           >
             {loading ? "Saving..." : "Register Employee"}
           </button>
         </div>
       </form>
 
-      {/* ---------------------- */}
-      {/* HR Employee Table */}
-      {/* ---------------------- */}
+      {/* Employee Status Table */}
       <h2 className="text-2xl font-bold mb-4">Employee Approval Status</h2>
+
       {tableLoading ? (
         <p>Loading employees...</p>
       ) : (
@@ -193,13 +165,12 @@ const RegisterEmployee = () => {
               <th className="border p-2">Department</th>
               <th className="border p-2">Occupation</th>
               <th className="border p-2">Approval Status</th>
-              <th className="border p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {employees.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center p-4">
+                <td colSpan="5" className="text-center p-4">
                   No employees found
                 </td>
               </tr>
@@ -207,7 +178,9 @@ const RegisterEmployee = () => {
               employees.map((emp) => (
                 <tr key={emp.id}>
                   <td className="border p-2">{emp.job_number}</td>
-                  <td className="border p-2">{emp.first_name} {emp.middle_name} {emp.last_name}</td>
+                  <td className="border p-2">
+                    {emp.first_name} {emp.middle_name} {emp.last_name}
+                  </td>
                   <td className="border p-2">{emp.department}</td>
                   <td className="border p-2">{emp.occupation}</td>
                   <td
@@ -216,28 +189,10 @@ const RegisterEmployee = () => {
                         ? "text-green-600"
                         : emp.approval_status === "REJECTED"
                         ? "text-red-600"
-                        : ""
+                        : "text-yellow-600"
                     }`}
                   >
                     {emp.approval_status}
-                  </td>
-                  <td className="border p-2">
-                    {emp.approval_status === "PENDING" && (
-                      <div className="flex gap-2">
-                        <button
-                          className="px-3 py-1 bg-green-500 text-white rounded"
-                          onClick={() => handleApprove(emp.id)}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          className="px-3 py-1 bg-red-500 text-white rounded"
-                          onClick={() => handleReject(emp.id)}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))

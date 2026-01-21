@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import api from "../../Utils/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const ReportsPage = () => {
   const [reportType, setReportType] = useState("purchase-orders");
@@ -29,7 +31,6 @@ const ReportsPage = () => {
       const res = await api.get(`/reports/${endpoint}/`, {
         params: { from: fromDate, to: toDate },
       });
-
       setData(res.data || []);
     } catch (err) {
       console.error("Report fetch error:", err);
@@ -40,46 +41,76 @@ const ReportsPage = () => {
     }
   };
 
-  // Columns for Purchase Order table
-  const poColumns = [
-    "po_number",
-    "created_at",
-    "item_name",
-    "quantity",
-    "total_order_amount",
-    "payment_status",
-    "delivery_status",
-  ];
+  /* ================= PDF DOWNLOAD ================= */
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
 
-  // Columns for Issue Out table
-  const issueOutColumns = [
-    "issue_date",
-    "item_name",
-    "issued_to_name",
-    "quantity_issued",
-    "reason",
-    "approval_status",
-    "status",
-  ];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("SOLIO RANCH LTD", 105, 15, { align: "center" });
 
-  const formatHeader = (header) => {
-    switch (header) {
-      case "status":
-        return "Issued Status";
-      case "quantity_issued":
-        return "Quantity ";
-      case "issued_to_name":
-        return "Issued To";
-      case "issue_date":
-        return "Issue Date";
-      default:
-        return header.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-    }
+    doc.setFontSize(13);
+    doc.text("INVENTORY REPORT", 105, 23, { align: "center" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(
+      `Report Type: ${reportType.replace("-", " ").toUpperCase()}`,
+      14,
+      32
+    );
+    doc.text(`From: ${fromDate}   To: ${toDate}`, 14, 38);
+
+    const headers =
+      reportType === "purchase-orders"
+        ? ["PO Number", "Date", "Items", "Quantity", "Total", "Payment", "Delivery"]
+        : reportType === "issue-out"
+        ? ["Date", "Item", "Issued To", "Quantity", "Reason", "Approval", "Status"]
+        : Object.keys(data[0] || {}).filter((k) => k !== "report_type");
+
+    const rows = data.map((row) => {
+      if (reportType === "purchase-orders") {
+        return [
+          row.po_number,
+          row.created_at,
+          row.items?.map((i) => i.item_name).join(", "),
+          row.items?.reduce((a, i) => a + i.quantity, 0),
+          row.total_order_amount,
+          row.payment_status,
+          row.delivery_status,
+        ];
+      }
+
+      if (reportType === "issue-out") {
+        return [
+          row.issue_date,
+          row.item_name,
+          row.issued_to_name,
+          row.quantity_issued,
+          row.reason,
+          row.approval_status,
+          row.status,
+        ];
+      }
+
+      return headers.map((h) => row[h] ?? "");
+    });
+
+    autoTable(doc, {
+      startY: 45,
+      head: [headers],
+      body: rows,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [75, 85, 58] },
+    });
+
+    doc.save(`${reportType}_${fromDate}_to_${toDate}.pdf`);
   };
 
+  /* ================= UI ================= */
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-2xl font-bold mb-32">Reports</h1>
+    <div className="p-6 bg-gray-100 min-h-screen pb-32">
+      <h1 className="text-2xl font-bold mb-6">Reports</h1>
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap gap-4 items-end">
@@ -134,101 +165,46 @@ const ReportsPage = () => {
             No data to display. Select a date range and generate a report.
           </p>
         ) : (
-          <table className="min-w-full border-collapse border border-gray-300">
-            <thead>
-              <tr className="bg-gray-200">
-                {reportType === "purchase-orders"
-                  ? poColumns.map((key) => (
-                      <th
-                        key={key}
-                        className="border border-gray-300 px-3 py-2 text-left"
-                      >
-                        {formatHeader(key)}
-                      </th>
-                    ))
-                  : reportType === "issue-out"
-                  ? issueOutColumns.map((key) => (
-                      <th
-                        key={key}
-                        className="border border-gray-300 px-3 py-2 text-left"
-                      >
-                        {formatHeader(key)}
-                      </th>
-                    ))
-                  : data.length > 0 &&
-                    Object.keys(data[0])
-                      .filter((k) => k !== "report_type")
-                      .map((key) => (
-                        <th
-                          key={key}
-                          className="border border-gray-300 px-3 py-2 text-left"
-                        >
-                          {formatHeader(key)}
-                        </th>
-                      ))}
+          <table className="min-w-full border border-gray-300">
+            <thead className="bg-gray-200">
+              <tr>
+                {Object.keys(data[0] || {})
+                  .filter((k) => k !== "report_type")
+                  .map((key) => (
+                    <th key={key} className="border px-3 py-2 text-left">
+                      {key.replace(/_/g, " ").toUpperCase()}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody>
-              {data.map((row, idx) => (
-                <tr key={idx} className="hover:bg-gray-50">
-                  {reportType === "purchase-orders"
-                    ? poColumns.map((col) => {
-                        if (col === "item_name") {
-                          const names = row.items?.map((i) => i.item_name).join(", ");
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{names}</td>;
-                        }
-                        if (col === "quantity") {
-                          const qty = row.items?.reduce((acc, i) => acc + i.quantity, 0);
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{qty}</td>;
-                        }
-                        if (col === "total_order_amount") {
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{row.total_order_amount}</td>;
-                        }
-                        if (col === "payment_status") {
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{row.payment_status}</td>;
-                        }
-                        if (col === "delivery_status") {
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{row.delivery_status}</td>;
-                        }
-                        if (col === "created_at") {
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{row.created_at}</td>;
-                        }
-                        if (col === "po_number") {
-                          return <td key={col} className="border border-gray-300 px-3 py-2">{row.po_number}</td>;
-                        }
-                        return null;
-                      })
-                    : reportType === "issue-out"
-                    ? issueOutColumns.map((col) => (
-                        <td key={col} className="border border-gray-300 px-3 py-2">
-                          {col === "item_name"
-                            ? row.item_name
-                            : col === "issued_to_name"
-                            ? row.issued_to_name
-                            : col === "quantity_issued"
-                            ? row.quantity_issued
-                            : col === "approval_status"
-                            ? row.approval_status
-                            : col === "status"
-                            ? row.status
-                            : row[col] ?? ""}
-                        </td>
-                      ))
-                    : Object.keys(row)
-                        .filter((k) => k !== "report_type")
-                        .map((col) => (
-                          <td key={col} className="border border-gray-300 px-3 py-2">
-                            {row[col] !== null && typeof row[col] === "object"
-                              ? JSON.stringify(row[col])
-                              : row[col] ?? ""}
-                          </td>
-                        ))}
+              {data.map((row, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  {Object.keys(row)
+                    .filter((k) => k !== "report_type")
+                    .map((k) => (
+                      <td key={k} className="border px-3 py-2">
+                        {row[k] ?? ""}
+                      </td>
+                    ))}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* PDF Button */}
+      {data.length > 0 && (
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={handleDownloadPDF}
+            className="bg-[#4B553A] hover:bg-[#3d462f] text-white px-6 py-2 rounded font-medium"
+          >
+            Download PDF
+          </button>
+        </div>
+      )}
     </div>
   );
 };

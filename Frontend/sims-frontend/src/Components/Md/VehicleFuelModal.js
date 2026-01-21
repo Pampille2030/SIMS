@@ -8,133 +8,111 @@ const VehicleFuelModal = ({ issue, onClose, onStatusChange }) => {
 
   const canMDAct = issue.approval_status?.toLowerCase() === "pending";
 
-  // Format status with proper capitalization
-  const formatStatus = (s) =>
-    s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "";
+  const formatStatus = (status) =>
+    status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : "";
 
-  // Get vehicle plate number
-  const getVehiclePlate = () => {
-    if (issue.vehicle_plate) return issue.vehicle_plate;
-    if (issue.vehicle?.plate_number) return issue.vehicle.plate_number;
-    return "No Plate";
-  };
+  const getVehiclePlate = () =>
+    issue.vehicle_plate || (issue.vehicle?.plate_number ?? "No Plate");
 
-  // Get employee display information
-  const getEmployeeInfo = () => {
-    if (issue.issued_to_name) return issue.issued_to_name;
-    if (issue.issued_to && typeof issue.issued_to === "object") {
-      const firstName = issue.issued_to.first_name || "";
-      const lastName = issue.issued_to.last_name || "";
-      const jobNumber = issue.issued_to.job_number || "";
-      const name = `${firstName} ${lastName}`.trim();
-      return jobNumber ? `${name} (${jobNumber})` : name || "Unknown Employee";
+  const getEmployeeInfo = () =>
+    issue.issued_to_name ||
+    (issue.issued_to?.first_name && issue.issued_to?.last_name
+      ? `${issue.issued_to.first_name} ${issue.issued_to.last_name} (${issue.issued_to.job_number || ""})`
+      : "Unknown Employee");
+
+  const getItemDisplay = () => {
+    if (issue.items && issue.items.length > 0) {
+      const item = issue.items[0];
+      return `${item.item_name || "Fuel"} (${item.quantity_issued} ${item.unit || "L"})`;
     }
-    return "Unknown Employee";
+    return issue.fuel_litres ? `Diesel (${issue.fuel_litres} L)` : "No Item";
   };
 
-  // Handle approve/reject actions
-  const handleAction = async (type) => {
+  const handleAction = async (action) => {
     try {
-      setLoadingAction(type);
-      await api.post(`/item_issuance/issuerecords/${issue.id}/${type}/`);
+      setLoadingAction(action);
+      await api.post(`/item_issuance/issuerecords/${issue.id}/${action}/`);
       const { data: updatedIssue } = await api.get(
         `/item_issuance/issuerecords/${issue.id}/`
       );
       onStatusChange(updatedIssue);
       onClose();
     } catch (error) {
-      console.error(
-        `Error ${type} vehicle fuel issue:`,
-        error.response?.data || error.message
-      );
-      alert(`Failed to ${type} vehicle fuel request`);
+      console.error(`Error ${action}:`, error.response?.data || error.message);
+      alert(`Failed to ${action} request`);
     } finally {
       setLoadingAction(null);
     }
   };
 
-  // Use distance_traveled from backend
-  const getDistanceTraveled = () => {
-    if (issue.distance_traveled != null) {
-      return `${issue.distance_traveled} km`;
-    }
-    
-    if (issue.current_mileage && issue.previous_mileage) {
-      return `${issue.current_mileage - issue.previous_mileage} km`;
-    }
-    
-    return "--";
-  };
-
-  // Get fuel efficiency from backend
-  const getFuelEfficiencyDisplay = () => {
-    const efficiency = issue.fuel_efficiency;
-    
-    if (!efficiency || efficiency === 0) {
-      return "N/A";
-    }
-    
-    const efficiencyValue = Number(efficiency);
-    return `${efficiencyValue.toFixed(2)} km/L`;
-  };
-
   return (
-    <div className="fixed top-24 left-0 right-0 bottom-0 z-50 flex items-start justify-center bg-black bg-opacity-50 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-lg mt-4">
-        <h3 className="text-xl font-bold mb-3 text-gray-800">
-          Vehicle Fuel Request Details
+    <div className="fixed top-24 left-0 right-0 bottom-0 z-50 flex items-start justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg p-5 w-full max-w-lg mt-4">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">
+          Vehicle Fuel Request
         </h3>
 
-        <div className="space-y-2 text-gray-700">
-          <p><strong>Employee:</strong> {getEmployeeInfo()}</p>
-          <p><strong>Vehicle Plate:</strong> {getVehiclePlate()}</p>
-          <p><strong>Fuel Quantity:</strong> {issue.fuel_litres || "0"} L</p>
+        <div className="space-y-4 text-gray-700">
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <strong className="block">Previous Mileage:</strong>
-              <span>{issue.previous_mileage ?? "--"} km</span>
-            </div>
-            <div>
-              <strong className="block">Current Mileage:</strong>
-              <span>{issue.current_mileage ?? "--"} km</span>
-            </div>
+          {/* Vehicle */}
+          <div>
+            <span className="font-semibold">Vehicle :</span>{" "}
+            <span>{getVehiclePlate()}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <strong className="block">Distance Traveled:</strong>
-              <span>{getDistanceTraveled()}</span>
-            </div>
-            <div>
-              <strong className="block">Fuel Efficiency:</strong>
-              <span>{getFuelEfficiencyDisplay()}</span>
-            </div>
+          {/* Item */}
+          <div>
+            <span className="font-semibold">Item :</span>{" "}
+            <span>{getItemDisplay()}</span>
           </div>
 
-          {/* Reason field */}
-          {!(canMDAct && loadingAction === "reject") && (
-            <p><strong>Reason:</strong> {issue.reason || "N/A"}</p>
-          )}
+          {/* Employee */}
+          <div>
+            <span className="font-semibold">Employee :</span>{" "}
+            <span>{getEmployeeInfo()}</span>
+          </div>
 
-          <p><strong>Approval Status:</strong> {formatStatus(issue.approval_status)}</p>
+          {/* Reason */}
+          <div>
+            <span className="font-semibold">Reason :</span>{" "}
+            <span>{issue.reason || "—"}</span>
+          </div>
+
+          {/* Approval Status */}
+          <div>
+            <span className="font-semibold">Approval status :</span>{" "}
+            <span
+              className={`px-2 py-1 rounded text-sm font-medium ${
+                issue.approval_status?.toLowerCase() === "pending"
+                  ? "bg-yellow-100 text-yellow-800"
+                  : issue.approval_status?.toLowerCase() === "approved"
+                  ? "bg-green-100 text-green-800"
+                  : issue.approval_status?.toLowerCase() === "rejected"
+                  ? "bg-red-100 text-red-800"
+                  : "bg-gray-100 text-gray-800"
+              }`}
+            >
+              {formatStatus(issue.approval_status)}
+            </span>
+          </div>
         </div>
 
-        <div className="mt-4 flex justify-between">
+        {/* Buttons */}
+        <div className="mt-6 flex justify-between items-center">
           <button
             onClick={onClose}
             disabled={loadingAction !== null}
-            className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1.5 rounded disabled:opacity-50"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
           >
             Close
           </button>
 
           {canMDAct && (
-            <div className="space-x-2">
+            <div className="space-x-3">
               <button
                 onClick={() => handleAction("approve")}
                 disabled={loadingAction !== null}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
               >
                 {loadingAction === "approve" ? "Processing..." : "Approve"}
               </button>
@@ -142,7 +120,7 @@ const VehicleFuelModal = ({ issue, onClose, onStatusChange }) => {
               <button
                 onClick={() => handleAction("reject")}
                 disabled={loadingAction !== null}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded disabled:opacity-50"
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
               >
                 {loadingAction === "reject" ? "Processing..." : "Reject"}
               </button>

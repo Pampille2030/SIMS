@@ -16,21 +16,12 @@ const IssueOutApprovalPage = () => {
     try {
       setLoading(true);
       const response = await api.get("/item_issuance/issuerecords/");
-      
-      // Filter out vehicle fuel issues (fuel issued to vehicles)
-      const filteredIssues = response.data.filter(issue => {
-        // Keep only material and tool issues
-        // Exclude fuel issues that have vehicle attached (vehicle fuel)
-        // Keep fuel that is issued as a tool (without vehicle)
-        if (issue.issue_type === 'fuel') {
-          // If it has a vehicle, it's vehicle fuel - exclude it
-          // If no vehicle, it's tool fuel - keep it
-          return !issue.vehicle;
-        }
-        // Keep all other issue types (material, tool)
-        return true;
-      });
-      
+
+      // Filter out vehicle fuel issues
+      const filteredIssues = response.data.filter(
+        (issue) => !(issue.issue_type === "fuel" && issue.fuel_type === "vehicle")
+      );
+
       setIssues(filteredIssues);
     } catch (error) {
       console.error("❌ Error fetching issues:", error);
@@ -39,14 +30,14 @@ const IssueOutApprovalPage = () => {
     }
   };
 
+  // Update issue in table after approval/rejection
   const handleStatusChange = (updatedIssue) => {
-    // Spread old issue and updatedIssue to ensure React sees the change
     setIssues((prev) =>
       prev.map((issue) =>
         issue.id === updatedIssue.id ? { ...issue, ...updatedIssue } : issue
       )
     );
-    // Also update modal state if open
+
     if (selectedIssue && selectedIssue.id === updatedIssue.id) {
       setSelectedIssue({ ...selectedIssue, ...updatedIssue });
     }
@@ -73,14 +64,20 @@ const IssueOutApprovalPage = () => {
       .join(", ");
   };
 
-  // 🔴 CHANGE 1: Remove colored badge, show plain text for Type column
-  const getIssueTypeDisplay = (issueType) => {
+  const getIssueTypeDisplay = (issueType, fuelType) => {
     const typeMap = {
-      'material': 'Material',
-      'tool': 'Tool',
-      'fuel': 'Tool Fuel'
+      material: "Material",
+      tool: "Tool",
+      fuel: fuelType === "vehicle" ? "Vehicle Fuel" : "Machine Fuel",
     };
     return typeMap[issueType] || issueType;
+  };
+
+  const getVehicleInfo = (issue) => {
+    if (issue.issue_type === "fuel" && issue.fuel_type === "vehicle" && issue.vehicle_plate) {
+      return ` to ${issue.vehicle_plate}`;
+    }
+    return "";
   };
 
   if (loading) {
@@ -97,10 +94,10 @@ const IssueOutApprovalPage = () => {
       <div className="mb-4">
         <h2 className="text-2xl font-bold">MD Approval - Issue Out Requests</h2>
         <p className="text-sm text-gray-600 mt-1">
-          Materials and Tools only (Vehicle Fuel has separate approval page)
+          Review and approve issuance requests (All types except vehicle fuel)
         </p>
       </div>
-      
+
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white shadow rounded">
           <thead>
@@ -118,16 +115,16 @@ const IssueOutApprovalPage = () => {
             {issues.length === 0 ? (
               <tr>
                 <td colSpan="7" className="p-8 text-center text-gray-500">
-                  No material or tool issuance requests found
+                  No issuance requests found
                 </td>
               </tr>
             ) : (
               issues.map((issue) => (
                 <tr key={issue.id} className="border-b hover:bg-gray-50 text-sm">
                   <td className="p-3">{formatDateTime(issue.issue_date)}</td>
-                  {/* 🔴 CHANGE 1: Plain text instead of colored badge */}
                   <td className="p-3 text-gray-700">
-                    {getIssueTypeDisplay(issue.issue_type)}
+                    {getIssueTypeDisplay(issue.issue_type, issue.fuel_type)}
+                    {getVehicleInfo(issue)}
                   </td>
                   <td className="p-3">{getItemNamesWithUnit(issue.items)}</td>
                   <td className="p-3">{issue.issued_to_name || "Unknown"}</td>
@@ -137,7 +134,6 @@ const IssueOutApprovalPage = () => {
                     </div>
                   </td>
                   <td className="p-3">
-                    {/* 🔴 CHANGE 2: Remove disabled state, always allow viewing */}
                     <button
                       onClick={() => handleView(issue)}
                       className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
