@@ -3,13 +3,13 @@ import api from "../../Utils/api";
 
 const MDPORequestPage = () => {
   const [requests, setRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeRequest, setActiveRequest] = useState(null);
   const [comment, setComment] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
 
-  // ============================
-  // Fetch PO Requests
-  // ============================
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -18,30 +18,56 @@ const MDPORequestPage = () => {
     try {
       const res = await api.get("/porequests/md/list/");
       setRequests(res.data);
+      setFilteredRequests(res.data);
     } catch (err) {
       console.error("Failed to fetch PO requests", err);
     }
   };
 
-  // ============================
-  // Open View Modal
-  // ============================
+  const filterRequests = (date = selectedDate, status = selectedStatus) => {
+    let filtered = [...requests];
+
+    if (date) {
+      filtered = filtered.filter((req) => {
+        const reqDate = new Date(req.created_at);
+        const yyyy = reqDate.getFullYear();
+        const mm = String(reqDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(reqDate.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}` === date;
+      });
+    }
+
+    if (status !== "all") {
+      filtered = filtered.filter((req) => req.approval_status === status.toUpperCase());
+    }
+
+    setFilteredRequests(filtered);
+  };
+
+  const handleDateChange = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    filterRequests(date, selectedStatus);
+  };
+
+  const handleStatusChange = (e) => {
+    const status = e.target.value;
+    setSelectedStatus(status);
+    filterRequests(selectedDate, status);
+  };
+
   const handleView = (request) => {
     setActiveRequest(request);
     setComment(request.approval_comment || "");
     setModalOpen(true);
   };
 
-  // ============================
-  // Approve / Reject
-  // ============================
   const handleApproval = async (status) => {
     try {
       await api.patch(`/porequests/md/approve/${activeRequest.id}/`, {
         approval_status: status,
         approval_comment: comment,
       });
-
       setModalOpen(false);
       setActiveRequest(null);
       setComment("");
@@ -51,19 +77,12 @@ const MDPORequestPage = () => {
     }
   };
 
-  // ============================
-  // Status Styling
-  // ============================
-  const statusColor = (status) => {
-    if (status === "APPROVED") return "text-green-600 font-semibold";
-    if (status === "REJECTED") return "text-red-600 font-semibold";
-    if (status === "PENDING") return "text-black font-semibold"; // text only
-    return "text-gray-600 font-semibold";
-  };
+  const statusBadge = (status) => (
+    <span className="inline-flex px-3 py-1 rounded-full text-white bg-[#4a533b]">
+      {status || "PENDING"}
+    </span>
+  );
 
-  // ============================
-  // Format Date Helper
-  // ============================
   const formatDate = (isoString) => {
     const d = new Date(isoString);
     const dd = String(d.getDate()).padStart(2, "0");
@@ -72,14 +91,46 @@ const MDPORequestPage = () => {
     let hours = d.getHours();
     const minutes = String(d.getMinutes()).padStart(2, "0");
     const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12;
-    hours = hours ? hours : 12; // 0 => 12
+    hours = hours % 12 || 12;
     return `${dd}/${mm}/${yy}, ${hours}:${minutes} ${ampm}`;
   };
+
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-2xl font-bold mb-6">Purchase Request Approvals</h1>
+
+      {/* FILTERS */}
+      <div
+        className="mb-4 flex flex-wrap gap-4 items-center p-4 rounded"
+        style={{ backgroundColor: "#4a533b" }}
+      >
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Date:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            className="border px-2 py-1 rounded"
+            max={today}
+          />
+        </div>
+
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Status:</label>
+          <select
+            value={selectedStatus}
+            onChange={handleStatusChange}
+            className="border px-2 py-1 rounded"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
 
       {/* TABLE */}
       <div className="bg-white p-4 rounded shadow-md max-w-7xl overflow-x-auto">
@@ -98,14 +149,14 @@ const MDPORequestPage = () => {
           </thead>
 
           <tbody>
-            {requests.length === 0 ? (
+            {filteredRequests.length === 0 ? (
               <tr>
                 <td colSpan="8" className="text-center py-6">
                   No purchase requests found
                 </td>
               </tr>
             ) : (
-              requests.map((req) => {
+              filteredRequests.map((req) => {
                 const isFinal =
                   req.approval_status === "APPROVED" ||
                   req.approval_status === "REJECTED";
@@ -118,11 +169,10 @@ const MDPORequestPage = () => {
                     <td className="border px-3 py-2">{req.quantity_in_stock}</td>
                     <td className="border px-3 py-2">{req.employee_name}</td>
 
-                    {/* ✅ View Button */}
                     <td className="border px-3 py-2">
                       <button
                         onClick={() => handleView(req)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                        className="bg-[#4a533b] text-white px-3 py-1 rounded hover:bg-[#3c452f]"
                       >
                         View
                       </button>
@@ -136,9 +186,7 @@ const MDPORequestPage = () => {
                           setModalOpen(true);
                         }}
                         className={`px-3 py-1 rounded text-white ${
-                          isFinal
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-green-600 hover:bg-green-700"
+                          isFinal ? "bg-gray-400 cursor-not-allowed" : "bg-[#4a533b] hover:bg-[#3c452f]"
                         }`}
                       >
                         Approve
@@ -151,19 +199,14 @@ const MDPORequestPage = () => {
                           setModalOpen(true);
                         }}
                         className={`px-3 py-1 rounded text-white ${
-                          isFinal
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-red-600 hover:bg-red-700"
+                          isFinal ? "bg-gray-400 cursor-not-allowed" : "bg-[#4a533b] hover:bg-[#3c452f]"
                         }`}
                       >
                         Reject
                       </button>
                     </td>
 
-                    {/* Status */}
-                    <td className={`border px-3 py-2 ${statusColor(req.approval_status)}`}>
-                      {req.approval_status}
-                    </td>
+                    <td className="border px-3 py-2">{statusBadge(req.approval_status)}</td>
                   </tr>
                 );
               })
@@ -184,9 +227,8 @@ const MDPORequestPage = () => {
             <p><strong>In Stock:</strong> {activeRequest.quantity_in_stock}</p>
             <p><strong>Employee:</strong> {activeRequest.employee_name}</p>
 
-            {/* Status */}
-            <p className={`mt-2 ${statusColor(activeRequest.approval_status)}`}>
-              <strong>Status:</strong> {activeRequest.approval_status}
+            <p className="mt-2">
+              <strong>Status:</strong> {statusBadge(activeRequest.approval_status)}
             </p>
 
             <textarea
@@ -195,7 +237,7 @@ const MDPORequestPage = () => {
               placeholder="MD comment..."
               rows={4}
               className="w-full border rounded px-3 py-2 mt-4"
-              disabled={activeRequest.approval_status !== "PENDING"} // ✅ disable if approved/rejected
+              disabled={activeRequest.approval_status !== "PENDING"}
             />
 
             <div className="flex justify-between mt-4">
@@ -206,22 +248,23 @@ const MDPORequestPage = () => {
                 Close
               </button>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleApproval("APPROVED")}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                  disabled={activeRequest.approval_status !== "PENDING"} // ✅ disable if approved/rejected
-                >
-                  Approve
-                </button>
-                <button
-                  onClick={() => handleApproval("REJECTED")}
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                  disabled={activeRequest.approval_status !== "PENDING"} // ✅ disable if approved/rejected
-                >
-                  Reject
-                </button>
-              </div>
+              {activeRequest.approval_status === "PENDING" && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApproval("APPROVED")}
+                    className="bg-[#4a533b] text-white px-4 py-2 rounded hover:bg-[#3c452f]"
+                  >
+                    Approve
+                  </button>
+
+                  <button
+                    onClick={() => handleApproval("REJECTED")}
+                    className="bg-[#4a533b] text-white px-4 py-2 rounded hover:bg-[#3c452f]"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

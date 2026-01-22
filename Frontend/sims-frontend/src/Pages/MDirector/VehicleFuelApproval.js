@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import VehicleFuelModal from "../../Components/Md/VehicleFuelModal";
 import api from "../../Utils/api";
 
 const VehicleFuelApprovalPage = () => {
   const [fuelIssues, setFuelIssues] = useState([]);
-  const [selectedIssue, setSelectedIssue] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [filteredIssues, setFilteredIssues] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [loadingActionId, setLoadingActionId] = useState(null);
 
-  // Fetch vehicle fuel issues
   useEffect(() => {
     fetchVehicleFuelIssues();
   }, []);
@@ -20,6 +20,7 @@ const VehicleFuelApprovalPage = () => {
         params: { issue_type: "fuel", fuel_type: "vehicle" },
       });
       setFuelIssues(response.data);
+      setFilteredIssues(response.data);
     } catch (error) {
       console.error("Error fetching vehicle fuel issues:", error);
     } finally {
@@ -27,25 +28,61 @@ const VehicleFuelApprovalPage = () => {
     }
   };
 
-  // Update issue after approval/rejection
-  const handleStatusChange = (updatedIssue) => {
-    setFuelIssues((prev) =>
-      prev.map((issue) =>
-        issue.id === updatedIssue.id ? { ...issue, ...updatedIssue } : issue
-      )
-    );
-    if (selectedIssue && selectedIssue.id === updatedIssue.id) {
-      setSelectedIssue({ ...selectedIssue, ...updatedIssue });
+  const applyFilters = (date = selectedDate, status = selectedStatus) => {
+    let filtered = [...fuelIssues];
+
+    if (date) {
+      filtered = filtered.filter((issue) => {
+        const issueDate = new Date(issue.issue_date);
+        const yyyy = issueDate.getFullYear();
+        const mm = String(issueDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(issueDate.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}` === date;
+      });
+    }
+
+    if (status !== "all") {
+      filtered = filtered.filter(
+        (issue) => issue.approval_status?.toLowerCase() === status
+      );
+    }
+
+    setFilteredIssues(filtered);
+  };
+
+  const handleDateChange = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    applyFilters(date, selectedStatus);
+  };
+
+  const handleStatusChangeFilter = (e) => {
+    const status = e.target.value;
+    setSelectedStatus(status);
+    applyFilters(selectedDate, status);
+  };
+
+  const handleAction = async (issueId, action) => {
+    try {
+      setLoadingActionId(issueId);
+      await api.post(`/item_issuance/issuerecords/${issueId}/${action}/`);
+      const { data: updatedIssue } = await api.get(
+        `/item_issuance/issuerecords/${issueId}/`
+      );
+      setFuelIssues((prev) =>
+        prev.map((issue) =>
+          issue.id === issueId ? { ...issue, ...updatedIssue } : issue
+        )
+      );
+      applyFilters(selectedDate, selectedStatus);
+    } catch (error) {
+      console.error(`Error ${action}:`, error.response?.data || error.message);
+      alert(`Failed to ${action} request`);
+    } finally {
+      setLoadingActionId(null);
     }
   };
 
-  // Open modal
-  const handleView = (issue) => {
-    setSelectedIssue(issue);
-    setShowModal(true);
-  };
-
-  // Format date
   const formatDateTime = (dateString) => {
     if (!dateString) return "--";
     const date = new Date(dateString);
@@ -59,30 +96,17 @@ const VehicleFuelApprovalPage = () => {
     );
   };
 
-  // Vehicle plate
-  const getVehicleDetails = (issue) => {
-    return issue.vehicle_plate || issue.vehicle?.plate_number || "No Plate";
-  };
+  const getVehicleDetails = (issue) =>
+    issue.vehicle_plate || issue.vehicle?.plate_number || "No Plate";
 
-  // Fuel quantity issued ✅
   const getFuelDetails = (issue) => {
-    // Check items array first
     if (Array.isArray(issue.items) && issue.items.length > 0) {
-      const fuelItem = issue.items.find(
-        (item) => item.item_category === "fuel"
-      );
-      if (fuelItem) {
-        const quantity = fuelItem.quantity_issued ?? 0;
-        const unit = fuelItem.unit || "L";
-        return `${quantity}${unit}`;
-      }
+      const fuelItem = issue.items.find((item) => item.item_category === "fuel");
+      if (fuelItem) return `${fuelItem.quantity_issued ?? 0}${fuelItem.unit || "L"}`;
     }
-    // Fallback to fuel_litres
-    const litres = issue.fuel_litres ?? 0;
-    return `${litres}L`;
+    return `${issue.fuel_litres ?? 0}L`;
   };
 
-  // Issued to info
   const getIssuedToInfo = (issue) => {
     if (issue.issued_to_name) return issue.issued_to_name;
     if (typeof issue.issued_to === "object" && issue.issued_to !== null) {
@@ -96,17 +120,6 @@ const VehicleFuelApprovalPage = () => {
     return "Unknown Employee";
   };
 
-  // View button
-  const getViewButton = (issue) => (
-    <button
-      onClick={() => handleView(issue)}
-      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-    >
-      View
-    </button>
-  );
-
-  // Status badge
   const getStatusBadge = (status) => {
     const lower = (status || "").toLowerCase();
     const map = {
@@ -127,13 +140,46 @@ const VehicleFuelApprovalPage = () => {
     );
   };
 
+  const today = new Date().toISOString().split("T")[0];
+
   if (loading) return <p className="mt-24 text-center text-gray-600">Loading...</p>;
-  if (fuelIssues.length === 0)
+  if (filteredIssues.length === 0)
     return <p className="mt-24 text-center text-gray-600">No vehicle fuel issues found.</p>;
 
   return (
     <div className="p-4 mt-24">
       <h2 className="text-2xl font-bold text-gray-800 mb-4">Vehicle Fuel Approval</h2>
+
+      {/* Filters */}
+      <div
+        className="mb-4 flex flex-wrap gap-4 items-center p-4 rounded"
+        style={{ backgroundColor: "#4a533b" }}
+      >
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Date:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            className="border px-2 py-1 rounded"
+            max={today}
+          />
+        </div>
+
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Status:</label>
+          <select
+            value={selectedStatus}
+            onChange={handleStatusChangeFilter}
+            className="border px-2 py-1 rounded"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -143,32 +189,49 @@ const VehicleFuelApprovalPage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Issued</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issued To</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {fuelIssues.map((issue) => (
-              <tr key={issue.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">{formatDateTime(issue.issue_date)}</td>
-                <td className="px-6 py-4">{getVehicleDetails(issue)}</td>
-                <td className="px-6 py-4">{getFuelDetails(issue)}</td>
-                <td className="px-6 py-4">{getIssuedToInfo(issue)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{getViewButton(issue)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(issue.approval_status)}</td>
-              </tr>
-            ))}
+            {filteredIssues.map((issue) => {
+              const canAct = issue.approval_status?.toLowerCase() === "pending";
+
+              return (
+                <tr key={issue.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">{formatDateTime(issue.issue_date)}</td>
+                  <td className="px-6 py-4">{getVehicleDetails(issue)}</td>
+                  <td className="px-6 py-4">{getFuelDetails(issue)}</td>
+                  <td className="px-6 py-4">{getIssuedToInfo(issue)}</td>
+                  <td className="px-6 py-4">{issue.reason || "--"}</td>
+                  <td className="px-6 py-4 flex gap-2">
+                    <button
+                      onClick={() => handleAction(issue.id, "approve")}
+                      disabled={!canAct || loadingActionId === issue.id}
+                      className={`px-3 py-1 rounded text-white ${
+                        !canAct ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                      }`}
+                    >
+                      {loadingActionId === issue.id ? "Processing..." : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => handleAction(issue.id, "reject")}
+                      disabled={!canAct || loadingActionId === issue.id}
+                      className={`px-3 py-1 rounded text-white ${
+                        !canAct ? "bg-gray-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
+                      }`}
+                    >
+                      {loadingActionId === issue.id ? "Processing..." : "Reject"}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(issue.approval_status)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-
-      {showModal && selectedIssue && (
-        <VehicleFuelModal
-          issue={selectedIssue}
-          onClose={() => setShowModal(false)}
-          onStatusChange={handleStatusChange}
-        />
-      )}
     </div>
   );
 };

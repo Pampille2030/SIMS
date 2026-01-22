@@ -8,17 +8,15 @@ const InventoryStockPage = () => {
   const [loading, setLoading] = useState(false);
   const [category, setCategory] = useState("all");
 
-  // Set base URL if backend is on different port
   axios.defaults.baseURL = "http://localhost:8000";
 
-  // ---------------- Fetch stock from backend ----------------
+  // ---------------- Fetch stock ----------------
   const fetchStock = async () => {
     setLoading(true);
     try {
       const response = await axios.get("/api/stockquantity/", {
         params: { category: category === "all" ? null : category },
       });
-      console.log("Stock fetched:", response.data); // debug
       setItems(response.data);
     } catch (error) {
       console.error("Error fetching inventory stock:", error);
@@ -29,29 +27,27 @@ const InventoryStockPage = () => {
   };
 
   useEffect(() => {
-    fetchStock(); // load all stock on mount
+    fetchStock();
   }, []);
 
   // ---------------- PDF download ----------------
   const downloadPDF = () => {
     const doc = new jsPDF();
+    const today = new Date().toLocaleDateString();
 
-    // ------------------ Title ------------------
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("SOLIO RANCH LTD, INVENTORY LIST", 14, 20);
+    doc.setFontSize(16);
+    doc.setFont("times", "bold");
+    doc.text("SOLIO RANCH LTD", 105, 15, { align: "center" });
 
-    // ------------------ Generated date ------------------
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.setFontSize(13);
+    doc.setFont("times", "normal");
+    doc.text(`OPENING BALANCE AS AT ${today}`, 105, 23, { align: "center" });
 
-    // ------------------ Table ------------------
     const tableColumn = ["#", "Item Name", "Reorder Level", "Quantity in Stock", "Unit"];
     const tableRows = items.map((item, index) => [
       index + 1,
       item.item_name,
-      item.reorder_level,
+      item.reorder_level ?? "null",
       item.quantity_in_stock,
       item.unit || "-",
     ]);
@@ -60,15 +56,10 @@ const InventoryStockPage = () => {
       startY: 35,
       head: [tableColumn],
       body: tableRows,
-      styles: { cellPadding: 3, fontSize: 10 },
-      headStyles: { fillColor: [220, 220, 220], fontStyle: "bold" }, // bold headers
+      styles: { fontSize: 9, font: "times" },
+      headStyles: { fillColor: [74, 83, 58], textColor: 255, fontStyle: "bold" },
       columnStyles: {
-        3: {
-          halign: "right",
-          fontStyle: "bold", // make quantity bold
-          // optional: conditional bold for low stock
-          // textColor: (row) => row.raw[3] < row.raw[2] ? [255,0,0] : [0,0,0]
-        },
+        3: { halign: "left", fontStyle: "bold" },
       },
     });
 
@@ -76,78 +67,85 @@ const InventoryStockPage = () => {
   };
 
   return (
-    <div className="page-container p-6">
-      <h2 className="text-2xl font-bold mb-4">Inventory Items in Stock</h2>
+    <div className="p-6 bg-gray-100 min-h-screen pb-32">
+      <h2 className="text-2xl font-bold mb-6">Current Stock Balance</h2>
 
       {/* Filter + Generate */}
-      <div className="flex items-center mb-4 space-x-2">
-        <label htmlFor="category" className="font-semibold">Filter by Category:</label>
-        <select
-          id="category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="border rounded px-2 py-1"
-        >
-          <option value="all">All</option>
-          <option value="material">Material</option>
-          <option value="tool">Tool</option>
-          <option value="fuel">Fuel</option>
-        </select>
+      <div className="mb-4 flex flex-wrap gap-4 items-end bg-[#4a533b] p-3 rounded">
+        <div>
+          <label htmlFor="category" className="block mb-1 text-sm text-white font-semibold">
+            Filter by Category:
+          </label>
+          <select
+            id="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="border px-3 py-2 rounded w-60"
+          >
+            <option value="all">All</option>
+            <option value="material">Material</option>
+            <option value="tool">Tool</option>
+            <option value="fuel">Fuel</option>
+          </select>
+        </div>
         <button
           onClick={fetchStock}
-          className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
         >
           Generate
         </button>
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <p>Loading inventory...</p>
-      ) : (
-        <table className="table-auto w-full border-collapse border border-gray-300 mb-4">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border px-4 py-2">#</th>
-              <th className="border px-4 py-2">Item Name</th>
-              <th className="border px-4 py-2">Reorder Level</th>
-              <th className="border px-4 py-2 text-right">Quantity in Stock</th>
-              <th className="border px-4 py-2">Unit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="text-center py-4">No items in stock</td>
-              </tr>
-            ) : (
-              items.map((item, index) => (
-                <tr key={index}>
-                  <td className="border px-4 py-2">{index + 1}</td>
-                  <td className="border px-4 py-2">{item.item_name}</td>
-                  <td className="border px-4 py-2">{item.reorder_level}</td>
-                  <td
-                    className={`border px-4 py-2 text-right ${
-                      item.quantity_in_stock < item.reorder_level ? "font-bold text-red-600" : ""
-                    }`}
-                  >
-                    {item.quantity_in_stock}
-                  </td>
-                  <td className="border px-4 py-2">{item.unit || "-"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
+{/* Table */}
+
+<div className="bg-white p-4 rounded shadow overflow-x-auto">
+  {!loading && items.length === 0 ? (
+    <p className="text-gray-500">
+      No items to display. Select a category and generate the table.
+    </p>
+  ) : (
+    <table className="min-w-full border border-gray-300">
+      <thead className="bg-gray-200">
+        <tr>
+          <th className="border px-3 py-2 text-left">#</th>
+          <th className="border px-3 py-2 text-left">Item Name</th>
+          <th className="border px-3 py-2 text-left">Reorder Level</th>
+          <th className="border px-3 py-2 text-left">Current Stock Balance</th>
+          <th className="border px-3 py-2 text-left">Unit</th>
+        </tr>
+      </thead>
+      <tbody className="text-sm"> {/* use default system font */}
+        {items.map((item, index) => (
+          <tr key={index} className="hover:bg-gray-50">
+            <td className="border px-3 py-2">{index + 1}</td>
+            <td className="border px-3 py-2">{item.item_name}</td>
+            <td className="border px-3 py-2">{item.reorder_level ?? "null"}</td>
+            <td
+              className={`border px-3 py-2 text-left ${
+                item.quantity_in_stock < (item.reorder_level ?? Infinity)
+                  ? "font-bold text-red-600"
+                  : ""
+              }`}
+            >
+              {item.quantity_in_stock}
+            </td>
+            <td className="border px-3 py-2">{item.unit || "-"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )}
+</div>
 
       {items.length > 0 && (
-        <button
-          onClick={downloadPDF}
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Download PDF
-        </button>
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={downloadPDF}
+            className="bg-[#4a533b] hover:bg-[#3d462f] text-white px-6 py-2 rounded font-medium"
+          >
+            Download PDF
+          </button>
+        </div>
       )}
     </div>
   );

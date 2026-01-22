@@ -4,9 +4,12 @@ import api from "../../Utils/api";
 
 const IssueOutApprovalPage = () => {
   const [issues, setIssues] = useState([]);
+  const [filteredIssues, setFilteredIssues] = useState([]);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("all");
 
   useEffect(() => {
     fetchIssues();
@@ -18,11 +21,12 @@ const IssueOutApprovalPage = () => {
       const response = await api.get("/item_issuance/issuerecords/");
 
       // Filter out vehicle fuel issues
-      const filteredIssues = response.data.filter(
+      const filtered = response.data.filter(
         (issue) => !(issue.issue_type === "fuel" && issue.fuel_type === "vehicle")
       );
 
-      setIssues(filteredIssues);
+      setIssues(filtered);
+      setFilteredIssues(filtered);
     } catch (error) {
       console.error("❌ Error fetching issues:", error);
     } finally {
@@ -30,17 +34,53 @@ const IssueOutApprovalPage = () => {
     }
   };
 
-  // Update issue in table after approval/rejection
-  const handleStatusChange = (updatedIssue) => {
+  // =========================
+  // Filter issues by date and status
+  // =========================
+  const filterIssues = (date = selectedDate, status = selectedStatus) => {
+    let filtered = [...issues];
+
+    if (date) {
+      filtered = filtered.filter((issue) => {
+        const issueDate = new Date(issue.issue_date);
+        const yyyy = issueDate.getFullYear();
+        const mm = String(issueDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(issueDate.getDate()).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}` === date;
+      });
+    }
+
+    if (status !== "all") {
+      filtered = filtered.filter(
+        (issue) => issue.approval_status?.toLowerCase() === status
+      );
+    }
+
+    setFilteredIssues(filtered);
+  };
+
+  const handleDateChange = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    filterIssues(date, selectedStatus);
+  };
+
+  const handleStatusChange = (e) => {
+    const status = e.target.value;
+    setSelectedStatus(status);
+    filterIssues(selectedDate, status);
+  };
+
+  const handleStatusUpdate = (updatedIssue) => {
     setIssues((prev) =>
       prev.map((issue) =>
         issue.id === updatedIssue.id ? { ...issue, ...updatedIssue } : issue
       )
     );
-
     if (selectedIssue && selectedIssue.id === updatedIssue.id) {
       setSelectedIssue({ ...selectedIssue, ...updatedIssue });
     }
+    filterIssues(selectedDate, selectedStatus);
   };
 
   const handleView = (issue) => {
@@ -80,6 +120,26 @@ const IssueOutApprovalPage = () => {
     return "";
   };
 
+  const today = new Date().toISOString().split("T")[0];
+
+  const getStatusBadge = (status) => {
+    const lower = (status || "PENDING").toLowerCase();
+    const map = {
+      pending: "bg-yellow-100 text-yellow-800",
+      approved: "bg-[#4a533b] text-white",
+      rejected: "bg-red-100 text-red-800",
+    };
+    return (
+      <span
+        className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+          map[lower] || "bg-gray-100 text-gray-800"
+        }`}
+      >
+        {status || "PENDING"}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="p-4 mt-24 text-center">
@@ -98,6 +158,37 @@ const IssueOutApprovalPage = () => {
         </p>
       </div>
 
+      {/* Filters Row */}
+      <div
+        className="mb-4 flex flex-wrap gap-4 items-center p-4 rounded"
+        style={{ backgroundColor: "#4a533b" }}
+      >
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Date:</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateChange}
+            className="border px-2 py-1 rounded"
+            max={today}
+          />
+        </div>
+
+        <div>
+          <label className="mr-2 font-semibold text-white">Filter by Status:</label>
+          <select
+            value={selectedStatus}
+            onChange={handleStatusChange}
+            className="border px-2 py-1 rounded"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white shadow rounded">
           <thead>
@@ -112,14 +203,14 @@ const IssueOutApprovalPage = () => {
             </tr>
           </thead>
           <tbody>
-            {issues.length === 0 ? (
+            {filteredIssues.length === 0 ? (
               <tr>
                 <td colSpan="7" className="p-8 text-center text-gray-500">
                   No issuance requests found
                 </td>
               </tr>
             ) : (
-              issues.map((issue) => (
+              filteredIssues.map((issue) => (
                 <tr key={issue.id} className="border-b hover:bg-gray-50 text-sm">
                   <td className="p-3">{formatDateTime(issue.issue_date)}</td>
                   <td className="p-3 text-gray-700">
@@ -136,26 +227,12 @@ const IssueOutApprovalPage = () => {
                   <td className="p-3">
                     <button
                       onClick={() => handleView(issue)}
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                      className="px-3 py-1 bg-[#4a533b] text-white rounded hover:bg-[#3c452f] transition-colors"
                     >
                       View
                     </button>
                   </td>
-                  <td className="p-3">
-                    <span
-                      className={`px-2 py-1 rounded text-white ${
-                        issue.approval_status?.toLowerCase() === "pending"
-                          ? "bg-yellow-500"
-                          : issue.approval_status?.toLowerCase() === "approved"
-                          ? "bg-green-600"
-                          : issue.approval_status?.toLowerCase() === "rejected"
-                          ? "bg-red-500"
-                          : "bg-gray-400"
-                      }`}
-                    >
-                      {issue.approval_status}
-                    </span>
-                  </td>
+                  <td className="p-3">{getStatusBadge(issue.approval_status)}</td>
                 </tr>
               ))
             )}
@@ -167,7 +244,7 @@ const IssueOutApprovalPage = () => {
         <MDIssueOutModal
           issue={selectedIssue}
           onClose={() => setShowModal(false)}
-          onStatusChange={handleStatusChange}
+          onStatusChange={handleStatusUpdate}
         />
       )}
     </div>

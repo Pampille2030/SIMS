@@ -111,7 +111,7 @@ const Sidebar = ({ isOpen }) => {
                 <span className="mr-2">📋</span> Inventory Reports
               </NavLink>
                   <NavLink to="/inventory/stock" className={navStyle}>
-      <span className="mr-2"> 📋 </span> Stock Quantity
+      <span className="mr-2"> 📋 </span> Stock Balance
     </NavLink>
           <NavLink to="/reports/write" className={navStyle}>
             <span className="mr-2">📝</span> Write Reports

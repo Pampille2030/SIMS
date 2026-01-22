@@ -99,13 +99,12 @@ const PurchaseOrderRequestPage = () => {
   // ===========================
   // Approval status color
   // ===========================
-const statusColor = (status) => {
-  if (status === "APPROVED") return "text-green-600 font-semibold";
-  if (status === "REJECTED") return "text-red-600 font-semibold";
-  if (status === "PENDING") return "text-black font-semibold"; // <-- black text for pending
-  return "text-gray-600 font-semibold"; // fallback
-};
-
+  const statusColor = (status) => {
+    if (status === "APPROVED") return "text-green-600 font-semibold";
+    if (status === "REJECTED") return "text-red-600 font-semibold";
+    if (status === "PENDING") return "text-black font-semibold";
+    return "text-gray-600 font-semibold";
+  };
 
   // ===========================
   // Open modal with request details
@@ -251,7 +250,7 @@ const statusColor = (status) => {
       {/* ================= MODAL ================= */}
       {modalOpen && modalData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-md max-w-lg w-full relative">
+          <div className="bg-white p-6 rounded shadow-md max-w-lg w-full relative flex flex-col">
             <h2 className="text-xl font-bold mb-4">Request Details</h2>
 
             <p><strong>Item:</strong> {modalData.item_name}</p>
@@ -268,12 +267,16 @@ const statusColor = (status) => {
               <strong>MD Comments:</strong> {modalData.approval_comment || "-"}
             </p>
 
+          {/* Close button at left bottom */}
+          <div className="mt-6 flex justify-start">
             <button
-              className="absolute top-2 right-2 text-gray-700 font-bold text-lg"
+              className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
               onClick={closeModal}
             >
-              &times;
+              Close
             </button>
+          </div>
+
           </div>
         </div>
       )}

@@ -225,6 +225,37 @@ class IssueOutSerializer(serializers.Serializer):
         }
 
 
+
+class CancelIssueSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        issue_record = self.context.get('issue_record')
+        if not issue_record:
+            raise serializers.ValidationError("Issue record not found in context")
+
+        # Cannot cancel already issued or returned records
+        if issue_record.status in ["Issued", "Returned"]:
+            raise serializers.ValidationError(
+                f"Cannot cancel an issue with status '{issue_record.status}'"
+            )
+
+        if issue_record.status == "Cancelled":
+            raise serializers.ValidationError("Issue is already cancelled")
+
+        return data
+
+    def save(self):
+        issue_record = self.context.get('issue_record')
+        reason = self.validated_data.get('reason', '')
+
+        issue_record.status = "Cancelled"
+        issue_record.cancelled_reason = reason  # optional field, add to model if needed
+        issue_record.cancelled_date = timezone.now()  # optional field, add to model if needed
+        issue_record.save()
+        return issue_record
+
+
 class ReturnRecordSerializer(serializers.Serializer):
     items_to_return = ReturnItemSerializer(many=True)
     return_date = serializers.DateTimeField(default=timezone.now)

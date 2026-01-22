@@ -14,16 +14,34 @@ from item_issuance.serializers import (
     ReturnRecordSerializer,
     IssueOutSerializer,
     VehicleSerializer,
+    CancelIssueSerializer,  
 )
+
 from inventory.models import Vehicle, Item
 from reports.models import Report
 
 
 class IssueRecordViewSet(viewsets.ModelViewSet):
-    queryset = IssueRecord.objects.all().order_by("-issue_date")
+    queryset = IssueRecord.objects.all()
     serializer_class = IssueRecordSerializer
-    permission_classes = [IsAuthenticated]
 
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        issue_record = self.get_object()
+        serializer = CancelIssueSerializer(
+            data=request.data, context={'issue_record': issue_record}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            {
+                "status": "Cancelled",
+                "issue_id": issue_record.issue_id,
+                "cancelled_reason": request.data.get("reason", "")
+            },
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
