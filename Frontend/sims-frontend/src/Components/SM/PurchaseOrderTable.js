@@ -24,7 +24,9 @@ const PurchaseOrderTable = ({ orders, onViewDetails }) => {
             <tbody>
               {safeOrders.map((order, i) => (
                 <tr key={i} className="hover:bg-gray-100">
-                  <td className="border px-4 py-2">{new Date(order.created_at).toLocaleDateString()}</td>
+                  <td className="border px-4 py-2">
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </td>
                   <td className="border px-4 py-2 capitalize">{order.order_type}</td>
                   <td
                     className="border px-4 py-2 text-blue-600 cursor-pointer hover:underline"
@@ -35,8 +37,10 @@ const PurchaseOrderTable = ({ orders, onViewDetails }) => {
                   <td className="border px-4 py-2">{order.approval_status}</td>
                   <td className="border px-4 py-2">{order.payment_status}</td>
                   <td className="border px-4 py-2">
-                    {order.delivery_status === "delivered" ? (
-                      <span className="text-green-600 font-semibold">Delivered</span>
+                    {order.delivery_status === "delivered" && order.delivery_date ? (
+                      <span className="text-green-600 font-semibold">
+                        {new Date(order.delivery_date).toLocaleDateString()}
+                      </span>
                     ) : (
                       <span className="text-gray-600 font-semibold">Pending</span>
                     )}

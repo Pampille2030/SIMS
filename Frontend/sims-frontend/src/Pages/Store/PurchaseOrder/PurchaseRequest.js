@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import api from "../../Utils/api";
+import api from "../../../Utils/api";
 
 const PurchaseOrderRequestPage = () => {
   const [items, setItems] = useState([]);
@@ -17,7 +17,6 @@ const PurchaseOrderRequestPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState(null);
 
-  // ====== IMPORTANT ======
   const employeeId = 1; // Replace with actual logged-in employee ID
 
   // ===========================
@@ -80,7 +79,7 @@ const PurchaseOrderRequestPage = () => {
         employee: Number(employeeId),
       });
 
-      setSuccess("Purchase request submitted successfully");
+      setSuccess("Purchase Order request submitted successfully");
       setError("");
 
       setSelectedItem("");
@@ -107,7 +106,7 @@ const PurchaseOrderRequestPage = () => {
   };
 
   // ===========================
-  // Open modal with request details
+  // Open modal
   // ===========================
   const openModal = (req) => {
     setModalData(req);
@@ -148,6 +147,7 @@ const PurchaseOrderRequestPage = () => {
               ))}
             </select>
           </div>
+
           <div className="flex-1 min-w-[140px]">
             <label className="block mb-1 font-semibold text-white">
               Quantity in Stock
@@ -159,6 +159,7 @@ const PurchaseOrderRequestPage = () => {
               className="w-full border px-3 py-2 rounded bg-gray-100"
             />
           </div>
+
           <div className="flex-1 min-w-[140px]">
             <label className="block mb-1 font-semibold text-white">
               Quantity Requested
@@ -171,6 +172,7 @@ const PurchaseOrderRequestPage = () => {
               className="w-full border px-3 py-2 rounded"
             />
           </div>
+
           <div className="flex-1 min-w-[200px]">
             <label className="block mb-1 font-semibold text-white">Remarks</label>
             <input
@@ -234,7 +236,11 @@ const PurchaseOrderRequestPage = () => {
                   </td>
                   <td className="border px-3 py-2 text-center">
                     <button
-                      className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                      className={`px-3 py-1 rounded text-white ${
+                        req.approval_comment
+                          ? "bg-[#4a533b] hover:bg-[#3d462f]" // MD commented → dark green
+                          : "bg-blue-600 hover:bg-blue-700"     // No comment → blue
+                      }`}
                       onClick={() => openModal(req)}
                     >
                       View
@@ -267,15 +273,14 @@ const PurchaseOrderRequestPage = () => {
               <strong>MD Comments:</strong> {modalData.approval_comment || "-"}
             </p>
 
-          {/* Close button at left bottom */}
-          <div className="mt-6 flex justify-start">
-            <button
-              className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
-              onClick={closeModal}
-            >
-              Close
-            </button>
-          </div>
+            <div className="mt-6 flex justify-start">
+              <button
+                className="bg-gray-200 text-black px-4 py-2 rounded hover:bg-gray-300"
+                onClick={closeModal}
+              >
+                Close
+              </button>
+            </div>
 
           </div>
         </div>

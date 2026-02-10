@@ -5,26 +5,29 @@ import { getCurrentUser } from '../../Utils/auth';
 
 const parseTimestamp = (timestamp) => {
   if (!timestamp) return new Date();
-  
-  if (typeof timestamp === 'string') {
-    if (timestamp.endsWith('Z')) {
-      return new Date(timestamp);
-    }
-    if (timestamp.includes('T')) {
-      return new Date(timestamp + 'Z');
-    }
-    if (/^\d+$/.test(timestamp)) {
-      return new Date(parseInt(timestamp));
-    }
-  }
-  
+
+  // If already a Date
+  if (timestamp instanceof Date) return timestamp;
+
+  // If number (unix seconds or ms)
   if (typeof timestamp === 'number') {
-    return new Date(timestamp * 1000);
+    return timestamp < 1e12
+      ? new Date(timestamp * 1000)
+      : new Date(timestamp);
   }
-  
-  console.warn('Unrecognized timestamp format:', timestamp);
+
+  // If string (ISO or Django datetime)
+  if (typeof timestamp === 'string') {
+    const date = new Date(timestamp); // ⬅️ NO "Z"
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  console.warn('Invalid timestamp:', timestamp);
   return new Date();
 };
+
+
+
 
 const formatMessageTime = (timestamp) => {
   try {

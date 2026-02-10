@@ -95,19 +95,25 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         return Response({"message": "Order marked as paid."}, status=status.HTTP_200_OK)
 
     # ---------------- MARK DELIVERED ----------------
-    @action(detail=True, methods=['post'])
-    def mark_delivered(self, request, pk=None):
-        purchase_order = self.get_object()
-        if purchase_order.payment_status != 'paid':
-            return Response(
-                {"error": "Order cannot be delivered before payment is done."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+# ---------------- MARK DELIVERED ----------------
+@action(detail=True, methods=['post'])
+def mark_delivered(self, request, pk=None):
+    purchase_order = self.get_object()
+    
+    # Ensure order has been paid
+    if purchase_order.payment_status != 'paid':
+        return Response(
+            {"error": "Order cannot be delivered before payment is done."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
-        purchase_order.delivery_status = 'delivered'
-        purchase_order.save()
-        serializer = self.get_serializer(purchase_order)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    # Mark delivered and save delivery date automatically
+    purchase_order.delivery_status = 'delivered'
+    purchase_order.save()  # Your model save() sets delivery_date automatically
+
+    serializer = self.get_serializer(purchase_order)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
 
     # ---------------- REJECT ORDER ----------------
     @action(detail=True, methods=['post'])

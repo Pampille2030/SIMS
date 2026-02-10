@@ -86,6 +86,7 @@ class PurchaseOrderSerializer(WritableNestedModelSerializer):
     approval_status = serializers.CharField(read_only=True)
     payment_status = serializers.CharField(read_only=True)
     delivery_status = serializers.CharField(read_only=True)
+    delivery_date = serializers.DateField(read_only=True)  # ✅ NEW FIELD
     can_approve_order = serializers.SerializerMethodField()
     order_number = serializers.CharField(read_only=True)
 
@@ -101,9 +102,10 @@ class PurchaseOrderSerializer(WritableNestedModelSerializer):
             "approval_status",    
             "payment_status",     
             "delivery_status",    
+            "delivery_date",       # ✅ Include delivery_date
             "can_approve_order",
         ]
-        read_only_fields = ["order_number", "created_at"]
+        read_only_fields = ["order_number", "created_at", "delivery_date"]
 
     def get_can_approve_order(self, obj):
         # Order can be approved if all items have an approved supplier

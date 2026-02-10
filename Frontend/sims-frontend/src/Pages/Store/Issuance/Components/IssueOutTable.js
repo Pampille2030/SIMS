@@ -1,9 +1,8 @@
-// src/Components/SM/IssueOutTable.js
 import React from 'react';
 import PropTypes from 'prop-types';
 
 // --------------------
-// Material/Fuel Table
+// Material / Fuel Table
 // --------------------
 const MaterialFuelTable = ({
   issuedRecords = [],
@@ -12,14 +11,18 @@ const MaterialFuelTable = ({
   handleConfirmIssue = () => {},
   handleCancelIssue = () => {}
 }) => {
+
   const formatDateTime = (dateString) => {
     if (!dateString) return '--';
     const date = new Date(dateString);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`;
   };
 
   const getItemNamesWithQty = (recordItems, issueType, currentLitres) => {
-    if (issueType === "petrol") {
+    if (issueType === 'petrol') {
       return `Petrol (${currentLitres ?? 0} L)`;
     }
 
@@ -38,7 +41,10 @@ const MaterialFuelTable = ({
 
   const getApprovalBadge = (status) => {
     const baseClass = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
-    if (!status) return <span className={`${baseClass} bg-gray-100 text-gray-800`}>--</span>;
+
+    if (!status) {
+      return <span className={`${baseClass} bg-gray-100 text-gray-800`}>--</span>;
+    }
 
     switch (status.toLowerCase()) {
       case 'pending':
@@ -55,31 +61,62 @@ const MaterialFuelTable = ({
   return (
     <div className="overflow-x-auto mt-6 shadow-sm rounded-lg border border-gray-200">
       <table className="min-w-full divide-y divide-gray-200">
+
+        {/* ===== TABLE HEADER ===== */}
         <thead className="bg-gray-50">
           <tr>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Approval Status</th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
           </tr>
         </thead>
+
+        {/* ===== TABLE BODY ===== */}
         <tbody className="bg-white divide-y divide-gray-200">
           {issuedRecords
-            .filter(record => record.issue_type !== 'tool') // ✅ show only material & fuel
+            .filter(record => record.issue_type !== 'tool')
             .map(record => {
-              const isApproved = record.approval_status?.toLowerCase() === 'approved';
-              const isProcessed = record.status?.toLowerCase() === 'issued' || record.status?.toLowerCase() === 'cancelled';
+              const approvalStatus = record.approval_status?.toLowerCase();
+              const isApproved = approvalStatus === 'approved';
+              const isRejected = approvalStatus === 'rejected';
+
+              const isProcessed =
+                record.status?.toLowerCase() === 'issued' ||
+                record.status?.toLowerCase() === 'cancelled';
 
               return (
-                <tr key={record.id} id={`record-${record.id}`} className={newRecordId === record.id ? 'bg-green-50' : ''}>
+                <tr
+                  key={record.id}
+                  id={`record-${record.id}`}
+                  className={newRecordId === record.id ? 'bg-green-50' : ''}
+                >
                   <td className="px-4 py-2">{formatDateTime(record.issue_date)}</td>
+
                   <td className="px-4 py-2">
-                    {getItemNamesWithQty(record.items, record.issue_type, record.current_litres)}
+                    {getItemNamesWithQty(
+                      record.items,
+                      record.issue_type,
+                      record.current_litres
+                    )}
                   </td>
-                  <td className="px-4 py-2">{record.issued_to_name || 'Employee not found'}</td>
-                  <td className="px-4 py-2">{record.reason || '--'}</td>
+
+                  <td className="px-4 py-2">
+                    {record.issued_to_name || 'Employee not found'}
+                  </td>
+
+                  <td className="px-4 py-2">
+                    {record.reason || '--'}
+                  </td>
+
+                  {/* Approval Status */}
+                  <td className="px-4 py-2">
+                    {getApprovalBadge(record.approval_status)}
+                  </td>
+
+                  {/* Actions */}
                   <td className="px-4 py-2">
                     {isApproved && !isProcessed ? (
                       <div className="flex gap-2">
@@ -96,13 +133,20 @@ const MaterialFuelTable = ({
                           Cancel
                         </button>
                       </div>
+                    ) : isRejected ? (
+                      <span className="font-semibold text-red-600">
+                        Rejected
+                      </span>
                     ) : !isApproved ? (
-                      <span className="text-gray-500 italic">Wait for MD decision</span>
+                      <span className="text-gray-500 italic">
+                        Wait for Approval
+                      </span>
                     ) : (
-                      <span className="font-semibold">{record.status}</span>
+                      <span className="font-semibold capitalize">
+                        {record.status}
+                      </span>
                     )}
                   </td>
-                  <td className="px-4 py-2">{getApprovalBadge(record.approval_status)}</td>
                 </tr>
               );
             })}
@@ -120,14 +164,18 @@ MaterialFuelTable.propTypes = {
   handleCancelIssue: PropTypes.func,
 };
 
-// -------------
+// --------------------
 // Tool Table
-// -------------
+// --------------------
 const ToolTable = ({ issuedRecords = [], items = [] }) => {
+
   const formatDateTime = (dateString) => {
     if (!dateString) return '--';
     const date = new Date(dateString);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`;
   };
 
   return (
@@ -143,16 +191,27 @@ const ToolTable = ({ issuedRecords = [], items = [] }) => {
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {issuedRecords
-            .filter(record => record.issue_type === 'tool' && record.status.toLowerCase() === 'issued')
+            .filter(
+              record =>
+                record.issue_type === 'tool' &&
+                record.status?.toLowerCase() === 'issued'
+            )
             .map(record => {
               const toolItem = record.items?.[0];
               const tool = items.find(i => i.id === toolItem?.item_id);
+
               return (
                 <tr key={record.id}>
                   <td className="px-4 py-2">{formatDateTime(record.issue_date)}</td>
-                  <td className="px-4 py-2">{tool ? tool.name : toolItem?.item_name || 'Unknown'}</td>
-                  <td className="px-4 py-2">{toolItem?.quantity_issued ?? 0}</td>
-                  <td className="px-4 py-2">{record.issued_to_name || 'N/A'}</td>
+                  <td className="px-4 py-2">
+                    {tool ? tool.name : toolItem?.item_name || 'Unknown'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {toolItem?.quantity_issued ?? 0}
+                  </td>
+                  <td className="px-4 py-2">
+                    {record.issued_to_name || 'N/A'}
+                  </td>
                 </tr>
               );
             })}
@@ -167,5 +226,4 @@ ToolTable.propTypes = {
   items: PropTypes.array,
 };
 
-// Export both so IssueOutPage can choose which to render
 export { MaterialFuelTable, ToolTable };

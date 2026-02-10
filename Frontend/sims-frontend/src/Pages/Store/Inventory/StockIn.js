@@ -1,6 +1,6 @@
 // src/Pages/StoreManager/StockInPage.js
 import React, { useState, useEffect } from "react";
-import api from "../../Utils/api";
+import api from "../../../Utils/api";
 
 const StockInPage = () => {
   const [items, setItems] = useState([]);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaCheck } from 'react-icons/fa';
 
 const PurchaseOrderModal = ({
   show,
@@ -11,7 +12,6 @@ const PurchaseOrderModal = ({
 
   const items = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
 
-  // Disable delivery button if approvals are not complete
   const canDeliver = selectedOrder.can_approve_order;
 
   return (
@@ -71,8 +71,8 @@ const PurchaseOrderModal = ({
                           "No invoice"
                         )}
                       </td>
-                      <td className="border px-3 py-2">
-                        {sup.approved_by_md ? "Approved" : "Pending"}
+                      <td className="border px-3 py-2 text-center">
+                        {sup.approved_by_md && <FaCheck className="text-green-500 text-lg mx-auto" />}
                       </td>
                     </tr>
                   ))}
@@ -87,7 +87,7 @@ const PurchaseOrderModal = ({
           <button
             onClick={() => canDeliver && onConfirmDelivery(selectedOrder.id)}
             className={`px-4 py-2 rounded text-white ${
-              canDeliver ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"
+              canDeliver ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
             }`}
             disabled={!canDeliver}
           >

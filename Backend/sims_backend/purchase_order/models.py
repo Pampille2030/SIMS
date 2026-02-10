@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from inventory.models import Item  
 
 class PurchaseOrder(models.Model):
@@ -38,8 +39,10 @@ class PurchaseOrder(models.Model):
         ],
         default='pending'
     )
+    delivery_date = models.DateField(blank=True, null=True)  # NEW FIELD
 
     def save(self, *args, **kwargs):
+        # Auto-generate order number
         if not self.order_number:
             last_order = PurchaseOrder.objects.order_by('-id').first()
             if last_order and last_order.order_number.startswith("PO"):
@@ -47,10 +50,16 @@ class PurchaseOrder(models.Model):
                 self.order_number = f"PO{last_num + 1}"
             else:
                 self.order_number = "PO1"
+
+        # Set delivery date automatically when status changes to delivered
+        if self.delivery_status == "delivered" and not self.delivery_date:
+            self.delivery_date = timezone.now().date()
+
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Order #{self.order_number} ({self.get_order_type_display()})"
+
 
 class PurchaseOrderItem(models.Model):
     purchase_order = models.ForeignKey(

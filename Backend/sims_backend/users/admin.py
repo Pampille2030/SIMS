@@ -5,7 +5,7 @@ from .models import (
     StoreManager,
     ManagingDirector,
     AccountsManager,
-    HumanResourceManager  # ✅ Import HR Manager
+    HumanResourceManager  #import hr Management
 )
 
 @admin.register(CustomUser)

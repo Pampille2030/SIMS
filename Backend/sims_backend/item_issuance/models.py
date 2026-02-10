@@ -3,7 +3,6 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.exceptions import ValidationError
 import uuid
-from decimal import Decimal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,10 +77,47 @@ class IssueItem(models.Model):
     unit = models.CharField(max_length=50, blank=True, null=True)
     returned_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     return_condition = models.CharField(max_length=100, blank=True, null=True)
+
+    # ------------------- Vehicle fuel tracking -------------------
+    previous_odometer = models.FloatField(null=True, blank=True)
+    current_odometer = models.FloatField(null=True, blank=True)
+    distance_travelled = models.FloatField(null=True, blank=True)
+    efficiency = models.FloatField(null=True, blank=True)
+    # -------------------------------------------------------------
+
     notes = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['-id']
+
+    def calculate_fuel_efficiency(self):
+        """Calculate fuel efficiency based on previous fuel issuance."""
+        if not (self.item.category == 'fuel' and 
+                self.issue_record.vehicle and 
+                self.current_odometer is not None):
+            return
+        
+        # Get the previous fuel issuance for this vehicle
+        last_fuel = IssueItem.objects.filter(
+            issue_record__vehicle=self.issue_record.vehicle,
+            item__category='fuel',
+            current_odometer__isnull=False
+        ).exclude(pk=self.pk).order_by('-issue_record__issue_date').first()
+
+        if last_fuel and last_fuel.current_odometer is not None:
+            self.previous_odometer = last_fuel.current_odometer
+            self.distance_travelled = (self.current_odometer or 0) - (last_fuel.current_odometer or 0)
+            
+            # CORRECT: Calculate efficiency based on PREVIOUS fuel quantity
+            if last_fuel.quantity_issued > 0 and self.distance_travelled > 0:
+                self.efficiency = self.distance_travelled / float(last_fuel.quantity_issued)
+            else:
+                self.efficiency = None
+        else:
+            # First fuel entry for this vehicle - no previous data
+            self.previous_odometer = None
+            self.distance_travelled = 0
+            self.efficiency = None
 
     def save(self, *args, **kwargs):
         is_new = not self.pk
@@ -95,8 +131,14 @@ class IssueItem(models.Model):
             self._previous_returned_quantity = 0
             self._previous_status = None
 
+        # Set unit from item if not provided
         if not self.unit:
             self.unit = self.item.unit
+
+        # ----------------- Vehicle Fuel Tracking Calculation -----------------
+        # SINGLE SOURCE OF TRUTH for efficiency calculation
+        self.calculate_fuel_efficiency()
+        # -----------------------------------------------------------------------
 
         super().save(*args, **kwargs)
 

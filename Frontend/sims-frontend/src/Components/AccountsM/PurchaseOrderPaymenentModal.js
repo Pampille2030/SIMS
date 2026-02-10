@@ -44,6 +44,7 @@ const ItemDetailsModal = ({ order, onClose, onPay }) => {
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">✕</button>
         </div>
 
+        {/* Message */}
         {message && (
           <div className={`p-2 mb-4 rounded ${message.includes('❌') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
             {message}
@@ -60,19 +61,22 @@ const ItemDetailsModal = ({ order, onClose, onPay }) => {
               <p><strong>Quantity:</strong> {item.quantity} ({item.item_unit})</p>
               <p>
                 <strong>MD Approval:</strong>{" "}
-                <span className={`px-2 py-1 rounded text-xs ${
-                  order.approval_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  order.approval_status === 'approved' ? 'bg-green-100 text-green-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {order.approval_status?.replace(/_/g, ' ').toUpperCase()}
-                </span>
+                {order.approval_status === 'approved' ? (
+                  <span className="text-green-600 font-semibold">APPROVED</span>
+                ) : (
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    order.approval_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {order.approval_status?.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                )}
               </p>
               <p>
                 <strong>Payment Status:</strong>{" "}
                 <span className={`px-2 py-1 rounded text-xs ${
                   order.payment_status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-green-100 text-green-800'
+                  'bg-green-600 text-white font-semibold'
                 }`}>
                   {order.payment_status?.replace(/_/g, ' ').toUpperCase()}
                 </span>
@@ -107,7 +111,7 @@ const ItemDetailsModal = ({ order, onClose, onPay }) => {
                       </td>
                       <td className="border px-3 py-2 text-center">
                         {supplier.approved_by_md ? (
-                          <span className="text-green-700 font-semibold">✔</span>
+                          <span className="text-green-600 dark:text-green-500 font-bold text-lg">✔</span>
                         ) : '-'}
                       </td>
                     </tr>

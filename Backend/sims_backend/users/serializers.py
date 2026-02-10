@@ -70,13 +70,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         # -----------------------------------------------------------------
         # ✅ Updated Role Validation:
-        # Allow all registered system roles including HRManager
+        # Include all registered system roles including HRManager & LivestockManager
         # -----------------------------------------------------------------
         if user.role not in [
             'StoreManager',
             'ManagingDirector',
             'AccountsManager',
-            'HumanResourceManager'
+            'HumanResourceManager',
+            'LivestockManager'   
         ]:
             raise serializers.ValidationError("Unauthorized role.")
 

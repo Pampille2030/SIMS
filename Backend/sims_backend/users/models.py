@@ -9,14 +9,15 @@ from django.db.models import Q
 # --------------------------------------------------------------
 # Extends Django's AbstractUser to include a `role` field that
 # defines user types such as Store Manager, Managing Director,
-# Accounts Manager, and Human Resource Manager.
+# Accounts Manager, Human Resource Manager, and Livestock Manager.
 # ==============================================================
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('StoreManager', 'Store Manager'),
         ('ManagingDirector', 'Managing Director'),
         ('AccountsManager', 'Accounts Manager'),
-        ('HumanResourceManager', 'Human Resource Manager'),  # ✅ New Role Added
+        ('HumanResourceManager', 'Human Resource Manager'),
+        ('LivestockManager', 'Livestock Manager'),  # ✅ NEW ROLE
     ]
     
     email = models.EmailField(
@@ -136,7 +137,7 @@ class AccountsManager(CustomUser):
         super().save(*args, **kwargs)
 
 
-# ✅ Human Resource Manager Proxy
+# Human Resource Manager Proxy
 class HumanResourceManager(CustomUser):
     class Meta:
         proxy = True
@@ -145,4 +146,16 @@ class HumanResourceManager(CustomUser):
 
     def save(self, *args, **kwargs):
         self.role = 'HumanResourceManager'
+        super().save(*args, **kwargs)
+
+
+# ✅ Livestock Manager Proxy
+class LivestockManager(CustomUser):
+    class Meta:
+        proxy = True
+        verbose_name = "Livestock Manager"
+        verbose_name_plural = "Livestock Managers"
+
+    def save(self, *args, **kwargs):
+        self.role = 'LivestockManager'
         super().save(*args, **kwargs)

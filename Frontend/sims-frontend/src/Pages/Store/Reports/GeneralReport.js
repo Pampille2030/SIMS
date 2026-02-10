@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../../Utils/api";
+import api from "../../../Utils/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -15,6 +15,7 @@ const ReportsPage = () => {
     "purchase-orders": "purchase-orders",
     "issue-out": "issue-out",
     "stock-in": "stock-in",
+    "return-tools": "return-tools", // ✅ new endpoint
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -55,46 +56,54 @@ const ReportsPage = () => {
 
     doc.setFont("times", "normal");
     doc.setFontSize(10);
-    doc.text(
-      `Report Type: ${reportType.replace("-", " ").toUpperCase()}`,
-      14,
-      32
-    );
+    doc.text(`Report Type: ${reportType.replace("-", " ").toUpperCase()}`, 14, 32);
     doc.text(`From: ${fromDate}   To: ${toDate}`, 14, 38);
 
-    const headers =
-      reportType === "purchase-orders"
-        ? ["PO Number", "Date", "Items", "Quantity", "Total", "Payment", "Delivery"]
-        : reportType === "issue-out"
-        ? ["Date", "Item", "Issued To", "Quantity", "Reason", "Approval", "Status"]
-        : Object.keys(data[0] || {}).filter((k) => k !== "report_type");
+    let headers = [];
+    if (reportType === "purchase-orders") {
+      headers = ["PO Number", "Date", "Items", "Quantity", "Total", "Payment", "Delivery"];
+    } else if (reportType === "issue-out") {
+      headers = ["Date", "Item", "Issued To", "Quantity Issued", "Quantity Remaining", "Status", "Reason"];
+    } else if (reportType === "return-tools") {
+      headers = ["Date", "Tool", "Quantity Issued", "Quantity Returned", "Outstanding Quantity", "Issued To"];
+    } else {
+      headers = ["Date Added", "Item", "Quantity", "Remarks", "Stock In No"];
+    }
 
     const rows = data.map((row) => {
       if (reportType === "purchase-orders") {
         return [
           row.po_number,
-          row.created_at_formatted || row.created_at, // use formatted if exists
+          row.created_at_formatted || row.created_at,
           row.items?.map((i) => `${i.item_name} (${i.quantity} ${i.item_unit})`).join(", "),
           row.items?.reduce((a, i) => a + i.quantity, 0),
           row.total_order_amount,
           row.payment_status,
-          row.delivery_status,
+          row.delivery_date || row.delivery_status,
         ];
-      }
-
-      if (reportType === "issue-out") {
+      } else if (reportType === "issue-out") {
         return [
           row.issue_date,
           row.item_name,
           row.issued_to_name,
           row.quantity_issued,
-          row.reason,
-          row.approval_status,
+          row.quantity_remaining,
           row.status,
+          row.reason,
         ];
+      } else if (reportType === "return-tools") {
+        return [
+          row.date,
+          row.tool,
+          row.quantity_issued,
+          row.quantity_returned,
+          row.outstanding_quantity,
+          row.issued_to,
+        ];
+      } else {
+        // Stock In
+        return [row.date_added, row.item_name, row.quantity, row.remarks, row.stock_in_no];
       }
-
-      return headers.map((h) => row[h] ?? "");
     });
 
     autoTable(doc, {
@@ -124,6 +133,7 @@ const ReportsPage = () => {
             <option value="purchase-orders">Purchase Orders</option>
             <option value="issue-out">Issue Out</option>
             <option value="stock-in">Stock In</option>
+            <option value="return-tools">Return Tools</option> {/* ✅ new option */}
           </select>
         </div>
 
@@ -163,36 +173,26 @@ const ReportsPage = () => {
       {/* Table */}
       <div className="bg-white p-4 rounded shadow overflow-x-auto">
         {!loading && data.length === 0 ? (
-          <p className="text-gray-500">
-            No data to display. Select a date range and generate a report.
-          </p>
+          <p className="text-gray-500">No data to display. Select a date range and generate a report.</p>
         ) : (
           <table className="min-w-full border border-gray-300">
             <thead className="bg-gray-200">
               <tr>
                 {reportType === "purchase-orders"
-                  ? ["po_number", "created_at_formatted", "items", "total_order_amount", "payment_status", "delivery_status"].map((key) => (
-                      <th key={key} className="border px-3 py-2 text-left">
-                        {key === "po_number"
-                          ? "PO NUMBER"
-                          : key === "created_at_formatted"
-                          ? "DATE"
-                          : key === "items"
-                          ? "ITEMS"
-                          : key === "total_order_amount"
-                          ? "AMOUNT"
-                          : key === "payment_status"
-                          ? "PAYMENT STATUS"
-                          : "DELIVERY"}
-                      </th>
+                  ? ["PO NUMBER", "DATE", "ITEMS", "QUANTITY", "AMOUNT", "PAYMENT STATUS", "DELIVERY"].map((key, idx) => (
+                      <th key={idx} className="border px-3 py-2 text-left">{key}</th>
                     ))
-                  : Object.keys(data[0] || {})
-                      .filter((k) => k !== "report_type")
-                      .map((key) => (
-                        <th key={key} className="border px-3 py-2 text-left">
-                          {key.replace(/_/g, " ").toUpperCase()}
-                        </th>
-                      ))}
+                  : reportType === "issue-out"
+                  ? ["DATE", "ITEM", "ISSUED TO", "QUANTITY ISSUED", "QUANTITY REMAINING", "STATUS", "REASON"].map((key, idx) => (
+                      <th key={idx} className="border px-3 py-2 text-left">{key}</th>
+                    ))
+                  : reportType === "return-tools"
+                  ? ["DATE", "TOOL", "QUANTITY ISSUED", "QUANTITY RETURNED", "OUTSTANDING QUANTITY", "ISSUED TO"].map((key, idx) => (
+                      <th key={idx} className="border px-3 py-2 text-left">{key}</th>
+                    ))
+                  : ["DATE ADDED", "ITEM", "QUANTITY", "REMARKS", "STOCK IN NO"].map((key, idx) => (
+                      <th key={idx} className="border px-3 py-2 text-left">{key}</th>
+                    ))}
               </tr>
             </thead>
             <tbody>
@@ -203,23 +203,39 @@ const ReportsPage = () => {
                         row.po_number,
                         row.created_at_formatted || row.created_at,
                         row.items?.map((i) => `${i.item_name} (${i.quantity} ${i.item_unit})`).join(", "),
+                        row.items?.reduce((a, i) => a + i.quantity, 0),
                         row.total_order_amount,
                         row.payment_status,
-                        row.delivery_status,
+                        row.delivery_date || row.delivery_status,
                       ].map((val, idx) => (
                         <td key={idx} className="border px-3 py-2">{val}</td>
                       ))
-                    : Object.keys(row)
-                        .filter((k) => k !== "report_type")
-                        .map((k) => (
-                          <td key={k} className="border px-3 py-2">
-                            {k === "items" && Array.isArray(row[k])
-                              ? row[k]
-                                  .map((item) => `${item.item_name} (${item.quantity} ${item.item_unit})`)
-                                  .join(", ")
-                              : row[k] ?? ""}
-                          </td>
-                        ))}
+                    : reportType === "issue-out"
+                    ? [
+                        row.issue_date,
+                        row.item_name,
+                        row.issued_to_name,
+                        row.quantity_issued,
+                        row.quantity_remaining,
+                        row.status,
+                        row.reason,
+                      ].map((val, idx) => (
+                        <td key={idx} className="border px-3 py-2">{val}</td>
+                      ))
+                    : reportType === "return-tools"
+                    ? [
+                        row.date,
+                        row.tool,
+                        row.quantity_issued,
+                        row.quantity_returned,
+                        row.outstanding_quantity,
+                        row.issued_to,
+                      ].map((val, idx) => (
+                        <td key={idx} className="border px-3 py-2">{val}</td>
+                      ))
+                    : [row.date_added, row.item_name, row.quantity, row.remarks, row.stock_in_no].map((val, idx) => (
+                        <td key={idx} className="border px-3 py-2">{val}</td>
+                      ))}
                 </tr>
               ))}
             </tbody>

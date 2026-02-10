@@ -1,6 +1,6 @@
 // Pages/SM/PurchaseOrderPage.js
 import React, { useState, useEffect } from "react";
-import api from "../../Utils/api";
+import api from "../../../Utils/api";
 
 const PurchaseOrderPage = ({ onSubmitOrder }) => {
   const [items, setItems] = useState([
@@ -46,7 +46,7 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
     setItems(updated);
   };
 
-  // Upload invoice when file is selected
+  // Upload invoice immediately after file selection (if order exists)
   const handleInvoiceChange = async (itemIndex, supplierIndex, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -56,7 +56,7 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
     setItems(updated);
 
     const supplier = updated[itemIndex].suppliers[supplierIndex];
-    if (!supplier.id || !supplier.order_id) return; // Upload after order submission
+    if (!supplier.id || !supplier.order_id) return; // Wait until order submission
 
     const formData = new FormData();
     formData.append("invoice", file);
@@ -114,7 +114,7 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
   };
 
-  // Validate that all invoices are selected
+  // Validate invoices before submission
   const validateInvoices = () => {
     for (const item of items) {
       for (const supplier of item.suppliers) {
@@ -150,7 +150,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
 
       const res = await onSubmitOrder(orderData, items);
 
-      // Save supplier IDs and order_id if backend returned them
       if (res?.id && res?.items) {
         const updated = [...items];
         res.items.forEach((ci, i) => {
@@ -183,7 +182,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
         }
       }
 
-      // Success alert
       alert("✅ Purchase Order submitted successfully with all invoices!");
 
       // Reset form

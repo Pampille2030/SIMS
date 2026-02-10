@@ -17,7 +17,6 @@ const ACPurchaseOrderApproval = () => {
     try {
       setLoading(true);
       const res = await api.get('/purchase-orders/?payment_status=pending');
-      // Sort latest to oldest
       const sortedOrders = res.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setOrders(sortedOrders);
       setMessage('');
@@ -29,20 +28,31 @@ const ACPurchaseOrderApproval = () => {
     }
   };
 
-  const getStatusBadge = (status, type = 'generic') => {
-    let config = { color: 'bg-gray-400', text: status };
-    if (type === 'approval') {
-      if (status === 'pending') config = { color: 'bg-yellow-500', text: 'Pending' };
-      else if (status === 'approved') config = { color: 'bg-green-600', text: 'Approved' };
-      else if (status === 'rejected') config = { color: 'bg-red-500', text: 'Rejected' };
-    } else if (type === 'payment') {
-      if (status === 'pending') config = { color: 'bg-yellow-300', text: 'Pending' };
-      else if (status === 'paid') config = { color: 'bg-green-600', text: 'Paid' };
-    } else if (type === 'delivery') {
-      if (status === 'pending') config = { color: 'bg-red-300', text: 'Not Delivered' };
-      else if (status === 'delivered') config = { color: 'bg-green-300', text: 'Delivered' };
-    }
-    return <span className={`px-2 py-1 rounded text-white ${config.color}`}>{config.text}</span>;
+  // Plain text for MD approval
+  const getApprovalText = (status) => {
+    if (status === 'approved') return <span className="text-green-600 font-semibold">Approved</span>;
+    if (status === 'rejected') return <span className="text-red-600 font-semibold">Rejected</span>;
+    return <span className="text-gray-700 font-semibold">Pending</span>;
+  };
+
+  // Plain text for payment status
+  const getPaymentText = (status) => {
+    if (status === 'paid') return <span className="text-green-600 font-semibold">Paid</span>;
+    return <span className="text-gray-700 font-semibold">Pending</span>;
+  };
+
+  // Plain text for delivery status
+  const getDeliveryText = (status) => {
+    if (status === 'delivered') return <span className="text-green-600 font-semibold">Delivered</span>;
+    return <span className="text-gray-700 font-semibold">Pending</span>;
+  };
+
+  // Unified function for table rendering
+  const getStatusDisplay = (status, type) => {
+    if (type === 'approval') return getApprovalText(status);
+    if (type === 'payment') return getPaymentText(status);
+    if (type === 'delivery') return getDeliveryText(status);
+    return <span className="text-gray-700">{status}</span>;
   };
 
   if (loading) {
@@ -95,9 +105,9 @@ const ACPurchaseOrderApproval = () => {
                       View
                     </button>
                   </td>
-                  <td className="px-4 py-2 border">{getStatusBadge(order.approval_status, 'approval')}</td>
-                  <td className="px-4 py-2 border">{getStatusBadge(order.payment_status, 'payment')}</td>
-                  <td className="px-4 py-2 border">{getStatusBadge(order.delivery_status, 'delivery')}</td>
+                  <td className="px-4 py-2 border">{getStatusDisplay(order.approval_status, 'approval')}</td>
+                  <td className="px-4 py-2 border">{getStatusDisplay(order.payment_status, 'payment')}</td>
+                  <td className="px-4 py-2 border">{getStatusDisplay(order.delivery_status, 'delivery')}</td>
                 </tr>
               ))}
             </tbody>

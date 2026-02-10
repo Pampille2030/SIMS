@@ -190,8 +190,8 @@ const VehicleFuelApprovalPage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Issued</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issued To</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -205,6 +205,9 @@ const VehicleFuelApprovalPage = () => {
                   <td className="px-6 py-4">{getFuelDetails(issue)}</td>
                   <td className="px-6 py-4">{getIssuedToInfo(issue)}</td>
                   <td className="px-6 py-4">{issue.reason || "--"}</td>
+                  {/* Status now second-to-last */}
+                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(issue.approval_status)}</td>
+                  {/* Actions now last */}
                   <td className="px-6 py-4 flex gap-2">
                     <button
                       onClick={() => handleAction(issue.id, "approve")}
@@ -225,7 +228,6 @@ const VehicleFuelApprovalPage = () => {
                       {loadingActionId === issue.id ? "Processing..." : "Reject"}
                     </button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(issue.approval_status)}</td>
                 </tr>
               );
             })}

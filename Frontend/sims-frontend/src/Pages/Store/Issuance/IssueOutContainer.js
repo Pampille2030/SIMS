@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../Utils/api';
+import api from '../../../Utils/api';
 import IssueOutForm from './IssueOutForm';
-import IssueOutTable from '../../Components/SM/IssueOutTable';
+import IssueOutTable from '../../../Components/SM/IssueOutTable';
 import IssueOutModal from '../../Components/SM/IssueOutModal';
 
 const IssueOutContainer = () => {

@@ -1,9 +1,9 @@
 // Pages/SM/PurchaseorderContainer.js
 import React, { useState, useEffect } from 'react';
-import api from '../../Utils/api';
+import api from '../../../Utils/api';
 import PurchaseOrderPage from './PurchaseOrder';
-import PurchaseOrderTable from '../../Components/SM/PurchaseOrderTable';
-import PurchaseOrderModal from '../../Components/SM/PurchaseOrderModal';
+import PurchaseOrderTable from '../../../Components/SM/PurchaseOrderTable';
+import PurchaseOrderModal from '../../../Components/SM/PurchaseOrderModal';
 
 const PurchaseorderContainer = () => {
   const [orders, setOrders] = useState([]);

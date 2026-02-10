@@ -10,9 +10,9 @@ from stockin.models import StockIn
 from .serializers import (
     PurchaseOrderReportSerializer,
     IssueRecordReportSerializer,
-    StockInReportSerializer
+    StockInReportSerializer,
+    ReturnToolReportSerializer
 )
-
 
 # -------------------------------
 # Individual reports
@@ -32,12 +32,17 @@ def stock_in_report(request):
     return generate_stock_in_report(request)
 
 
+@api_view(['GET'])
+def return_tool_report(request):
+    return generate_return_tool_report(request)
+
+
 # -------------------------------
 # Combined report by date
 # -------------------------------
 @api_view(['GET'])
 def reports_by_date(request):
-    """Return combined POs, Issue Out, Stock In in a date range (newest first)"""
+    """Return combined POs, Issue Out, Stock In, and Return Tools in a date range (newest first)"""
     from_date = request.GET.get('from')
     to_date = request.GET.get('to')
 
@@ -91,12 +96,24 @@ def reports_by_date(request):
                 entry['date_added'] = dt.strftime('%Y-%m-%d %H:%M')
 
         # ----------------------------
+        # Return Tool Records
+        # ----------------------------
+        return_tool_records = IssueRecord.objects.filter(
+            issue_date__gte=from_date_obj,
+            issue_date__lte=to_date_obj,
+            items__item__category='tool'
+        ).distinct().select_related('issued_to')
+        return_tool_data = ReturnToolReportSerializer(return_tool_records, many=True).data
+        for entry in return_tool_data:
+            entry['report_type'] = 'return_tool'
+
+        # ----------------------------
         # Combine & sort newest first
         # ----------------------------
-        combined = po_data + issue_data + stock_data
+        combined = po_data + issue_data + stock_data + return_tool_data
         combined_sorted = sorted(
             combined,
-            key=lambda x: x.get('created_at') or x.get('issue_date') or x.get('date_added'),
+            key=lambda x: x.get('created_at') or x.get('issue_date') or x.get('date_added') or x.get('date'),
             reverse=True
         )
 
@@ -158,11 +175,6 @@ def generate_issue_out_report(request):
             if 'issue_date' in entry and entry['issue_date']:
                 dt = datetime.fromisoformat(entry['issue_date'])
                 entry['issue_date'] = dt.strftime('%Y-%m-%d %H:%M')
-
-            # Ensure quantity_issued is included (comes from serializer)
-            if 'quantity_issued' not in entry:
-                entry['quantity_issued'] = None
-
         return Response(data)
 
     except Exception as e:
@@ -189,6 +201,31 @@ def generate_stock_in_report(request):
             if 'date_added' in entry and entry['date_added']:
                 dt = datetime.fromisoformat(entry['date_added'])
                 entry['date_added'] = dt.strftime('%Y-%m-%d %H:%M')
+        return Response(data)
+
+    except Exception as e:
+        return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def generate_return_tool_report(request):
+    from_date = request.GET.get('from')
+    to_date = request.GET.get('to')
+    if not from_date or not to_date:
+        return Response({"error": "Both 'from' and 'to' dates are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        from_date_obj = timezone.make_aware(datetime.combine(datetime.strptime(from_date, "%Y-%m-%d").date(), time.min))
+        to_date_obj = timezone.make_aware(datetime.combine(datetime.strptime(to_date, "%Y-%m-%d").date(), time.max))
+        return_tool_records = IssueRecord.objects.filter(
+            issue_date__gte=from_date_obj,
+            issue_date__lte=to_date_obj,
+            items__item__category='tool'
+        ).distinct().select_related('issued_to')
+
+        serializer = ReturnToolReportSerializer(return_tool_records, many=True)
+        data = serializer.data
+        for entry in data:
+            entry['report_type'] = 'return_tool'
         return Response(data)
 
     except Exception as e:
