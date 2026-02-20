@@ -19,51 +19,57 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await api.post('/auth/login/', { email, password });
+  const response = await api.post('/auth/login/', { email, password });
 
-      const { access, refresh } = response.data;
-      if (!access || !refresh) throw new Error('Missing tokens');
+  const { access, refresh } = response.data;
+  if (!access || !refresh) throw new Error('Missing tokens');
 
-      const decoded = jwtDecode(access);
-      const role = decoded?.role;
-      if (!role) throw new Error('Missing role');
+  const decoded = jwtDecode(access);
+  const role = decoded?.role;
+  if (!role) throw new Error('Missing role');
 
-      // Store tokens in both localStorage and sessionStorage for fallback
-      localStorage.setItem('accessToken', access);
-      localStorage.setItem('refreshToken', refresh);
-      sessionStorage.setItem('accessToken', access);
-      sessionStorage.setItem('refreshToken', refresh);
+  // Defines userData BEFORE storing it
+  const userData = {
+    email,
+    role: role.toLowerCase(),
+  };
 
-      const userData = {
-        email,
-        role: role.toLowerCase(),
-      };
-      localStorage.setItem('user', JSON.stringify(userData));
-      sessionStorage.setItem('user', JSON.stringify(userData));
+  // Store tokens based on "Remember Me"
+  if (rememberMe) {
+    localStorage.setItem('accessToken', access);
+    localStorage.setItem('refreshToken', refresh);
+    localStorage.setItem('user', JSON.stringify(userData));
+  } else {
+    sessionStorage.setItem('accessToken', access);
+    sessionStorage.setItem('refreshToken', refresh);
+    sessionStorage.setItem('user', JSON.stringify(userData));
+  }
 
-      login(userData);
+  // Update context
+  login(userData);
 
-      switch (userData.role) {
-        case 'storemanager':
-          navigate('/inventory/issue-out');
-          break;
-        case 'managingdirector':
-          navigate('/orderapproval');
-          break;
-        case 'accountsmanager':
-          navigate('/payment');
-          break;
-        case 'humanresourcemanager':
-          navigate('/hr/employees/add'); // HR landing page (AddEmployee)
-          break;
-        default:
-          navigate('/');
-      }
+  // Navigate based on role
+  switch (userData.role) {
+    case 'storemanager':
+      navigate('/inventory/issue-out');
+      break;
+    case 'managingdirector':
+      navigate('/orderapproval');
+      break;
+    case 'accountsmanager':
+      navigate('/payment');
+      break;
+    case 'humanresourcemanager':
+      navigate('/hr/employees/add');
+      break;
+    default:
+      navigate('/');
+  }
+} catch (err) {
+  console.error('Login error:', err);
+  setError('Invalid email or password');
+}
 
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Invalid email or password');
-    }
   };
 
   return (

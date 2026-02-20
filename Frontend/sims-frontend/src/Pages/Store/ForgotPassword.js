@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
-import api from '../../Utils/api'; // axios instance with token headers
+import api from '../../Utils/api'; 
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');

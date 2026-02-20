@@ -69,9 +69,11 @@ const MDApprovalPage = () => {
     filterOrders(selectedDate, status);
   };
 
-  const handleApproveOrder = async (orderId) => {
+  const handleApproveOrder = async (orderId, approvedAccount) => {
     try {
-      await api.post(`/purchase-orders/${orderId}/final_approve_order/`);
+      await api.post(`/purchase-orders/${orderId}/final_approve_order/`, {
+        approved_account: approvedAccount,
+      });
       await fetchPendingOrders();
       setShowModal(false);
       setMessage('Order fully approved');
@@ -96,7 +98,7 @@ const MDApprovalPage = () => {
   const handleToggleSupplier = async (orderId, itemId, supplierId) => {
     try {
       await api.post(`/purchase-orders/${orderId}/approve_supplier/`, {
-        supplier_id: supplierId
+        supplier_id: supplierId,
       });
 
       // Refresh selected order data
@@ -195,17 +197,36 @@ const MDApprovalPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="border-b hover:bg-gray-50 text-sm">
-                  <td className="p-3">{new Date(order.created_at).toLocaleDateString()}</td>
-                  <td className="p-3 capitalize">{order.order_type}</td>
-                  <td className="p-3 text-left">{order.items?.map((item) => item.item_name).join(', ') || '-'}</td>
-                  <td className="p-3">{getStatusBadge(order.approval_status)}</td>
-                  <td className="p-3">
-                    <button onClick={() => handleViewOrder(order)} className="bg-[#4a533b] text-white px-3 py-1 rounded hover:bg-[#3c452f] text-sm transition-colors">View</button>
-                  </td>
-                </tr>
-              ))}
+              {filteredOrders.map((order) => {
+                const viewButtonColor =
+                  order.accounts_with_money?.length > 0 && order.approval_status.toLowerCase() === 'pending'
+                    ? '#007BFF' // blue if accountant has money and pending
+                    : '#4a533b'; // default color
+
+                return (
+                  <tr key={order.id} className="border-b hover:bg-gray-50 text-sm">
+                    <td className="p-3">{new Date(order.created_at).toLocaleDateString()}</td>
+                    <td className="p-3 capitalize">{order.order_type}</td>
+                    <td className="p-3 text-left">{order.items?.map((item) => item.item_name).join(', ') || '-'}</td>
+                    <td className="p-3">{getStatusBadge(order.approval_status)}</td>
+                    <td className="p-3">
+                      <button
+                        onClick={() => handleViewOrder(order)}
+                        style={{
+                          backgroundColor: viewButtonColor,
+                          color: '#fff',
+                          padding: '0.25rem 0.5rem',
+                          borderRadius: '0.25rem',
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -216,8 +237,16 @@ const MDApprovalPage = () => {
         <MDApprovalModal
           order={selectedOrder}
           onClose={() => setShowModal(false)}
-          onApprove={selectedOrder.approval_status.toLowerCase() === 'pending' ? () => handleApproveOrder(selectedOrder.id) : undefined}
-          onReject={selectedOrder.approval_status.toLowerCase() === 'pending' ? () => handleRejectOrder(selectedOrder.id) : undefined}
+          onApprove={
+            selectedOrder.approval_status.toLowerCase() === 'pending'
+              ? (orderId, approvedAccount) => handleApproveOrder(orderId, approvedAccount)
+              : undefined
+          }
+          onReject={
+            selectedOrder.approval_status.toLowerCase() === 'pending'
+              ? () => handleRejectOrder(selectedOrder.id)
+              : undefined
+          }
           onToggleSupplier={handleToggleSupplier}
         />
       )}

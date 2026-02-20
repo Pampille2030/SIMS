@@ -28,30 +28,35 @@ const ACPurchaseOrderApproval = () => {
     }
   };
 
-  // Plain text for MD approval
+  // STATUS DISPLAY FUNCTIONS
   const getApprovalText = (status) => {
     if (status === 'approved') return <span className="text-green-600 font-semibold">Approved</span>;
     if (status === 'rejected') return <span className="text-red-600 font-semibold">Rejected</span>;
     return <span className="text-gray-700 font-semibold">Pending</span>;
   };
 
-  // Plain text for payment status
-  const getPaymentText = (status) => {
+  const getPaymentText = (status, approvalStatus) => {
+    if (approvalStatus === 'rejected') return <span className="text-gray-500 font-semibold">N/A</span>;
     if (status === 'paid') return <span className="text-green-600 font-semibold">Paid</span>;
     return <span className="text-gray-700 font-semibold">Pending</span>;
   };
 
-  // Plain text for delivery status
-  const getDeliveryText = (status) => {
-    if (status === 'delivered') return <span className="text-green-600 font-semibold">Delivered</span>;
+  const getDeliveryText = (status, deliveryDate, approvalStatus) => {
+    if (approvalStatus === 'rejected') return <span className="text-gray-500 font-semibold">N/A</span>;
+    if (status === 'delivered') {
+      return deliveryDate ? (
+        <span className="text-green-600 font-semibold">{new Date(deliveryDate).toLocaleDateString()}</span>
+      ) : (
+        <span className="text-green-600 font-semibold">Delivered</span>
+      );
+    }
     return <span className="text-gray-700 font-semibold">Pending</span>;
   };
 
-  // Unified function for table rendering
-  const getStatusDisplay = (status, type) => {
+  const getStatusDisplay = (status, type, approvalStatus = null, deliveryDate = null) => {
     if (type === 'approval') return getApprovalText(status);
-    if (type === 'payment') return getPaymentText(status);
-    if (type === 'delivery') return getDeliveryText(status);
+    if (type === 'payment') return getPaymentText(status, approvalStatus);
+    if (type === 'delivery') return getDeliveryText(status, deliveryDate, approvalStatus);
     return <span className="text-gray-700">{status}</span>;
   };
 
@@ -106,8 +111,12 @@ const ACPurchaseOrderApproval = () => {
                     </button>
                   </td>
                   <td className="px-4 py-2 border">{getStatusDisplay(order.approval_status, 'approval')}</td>
-                  <td className="px-4 py-2 border">{getStatusDisplay(order.payment_status, 'payment')}</td>
-                  <td className="px-4 py-2 border">{getStatusDisplay(order.delivery_status, 'delivery')}</td>
+                  <td className="px-4 py-2 border">
+                    {getStatusDisplay(order.payment_status, 'payment', order.approval_status)}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    {getStatusDisplay(order.delivery_status, 'delivery', order.approval_status, order.delivery_date)}
+                  </td>
                 </tr>
               ))}
             </tbody>

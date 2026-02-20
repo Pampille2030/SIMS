@@ -12,8 +12,7 @@ const Sidebar = ({ isOpen }) => {
   const isStoreManager = normalizedRole === 'storemanager';
   const isManagingDirector = normalizedRole === 'managingdirector';
   const isAccountsManager = normalizedRole === 'accountsmanager';
-  const isHR = normalizedRole === 'humanresourcemanager';
-  const isLivestockManager = normalizedRole === 'livestockmanager'; // ✅ New role
+  const isLivestockManager = normalizedRole === 'livestockmanager';
 
   return (
     <aside
@@ -65,14 +64,9 @@ const Sidebar = ({ isOpen }) => {
 
         {/* ================= ACCOUNTS MANAGER ================= */}
         {isAccountsManager && (
-          <NavLink to="/payment" className={navStyle}><span className="mr-2">💳</span> Payment Approval</NavLink>
-        )}
-
-        {/* ================= HR ================= */}
-        {isHR && (
           <div className="space-y-2">
-            <NavLink to="/hr/employees/add" className={navStyle}><span className="mr-2">👤</span> Add Employee</NavLink>
-            <NavLink to="/hr/reports" className={navStyle}><span className="mr-2">📊</span> Reports Management</NavLink>
+            <NavLink to="/payment" className={navStyle}><span className="mr-2">💳</span> Payment Approval</NavLink>
+            <NavLink to="/accounts/employees/add" className={navStyle}><span className="mr-2">👤</span> Add Employee</NavLink>
           </div>
         )}
 

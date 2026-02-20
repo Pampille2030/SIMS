@@ -2,9 +2,8 @@ from django.db import models
 from django.core.validators import RegexValidator
 from datetime import date
 
-# ==================================================
-# Validators (Kenya Standards)
-# ==================================================
+
+# Validators
 kra_pin_validator = RegexValidator(
     regex=r'^[A-Za-z][0-9]{9}[A-Za-z]$',
     message="KRA PIN must be 11 characters: 1 letter, 9 digits, and 1 letter."
@@ -31,40 +30,22 @@ phone_validator = RegexValidator(
 )
 
 
-# ==================================================
-# Employee Model
-# ==================================================
 class Employee(models.Model):
-
-    APPROVAL_STATUS_CHOICES = [
-        ("PENDING", "Pending"),
-        ("APPROVED", "Approved"),
-        ("REJECTED", "Rejected"),
-    ]
+    """Employee model for managing personnel information."""
 
     STATUS_CHOICES = [
         ("Active", "Active"),
         ("Inactive", "Inactive"),
     ]
 
-    # -------------------------
-    # Approval & Status
-    # -------------------------
-    approval_status = models.CharField(
-        max_length=20,
-        choices=APPROVAL_STATUS_CHOICES,
-        default="PENDING",
-    )
-
+    # Status
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="Inactive",
+        default="Active",
     )
 
-    # -------------------------
-    # Basic Info
-    # -------------------------
+    # Basic Information
     job_number = models.CharField(max_length=50, unique=True)
     first_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True, null=True)
@@ -73,28 +54,59 @@ class Employee(models.Model):
     occupation = models.CharField(max_length=100, blank=True, default="Unknown")
     date_hired = models.DateField(default=date.today)
 
-    # -------------------------
-    # IDs
-    # -------------------------
-    national_id_number = models.CharField(max_length=20, unique=True)
-    kra_pin = models.CharField(max_length=11, unique=True, validators=[kra_pin_validator])
-    sha_number = models.CharField(max_length=50, unique=True, validators=[sha_validator])
-    nssf_number = models.CharField(max_length=10, unique=True, validators=[nssf_validator])
+    # Identification Numbers
+    national_id_number = models.CharField(
+        max_length=20, unique=True, null=True, blank=True
+    )
 
-    # -------------------------
-    # Contact / Bank
-    # -------------------------
+    kra_pin = models.CharField(
+        max_length=11,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[kra_pin_validator],
+    )
+
+    sha_number = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[sha_validator],
+    )
+
+    nssf_number = models.CharField(
+        max_length=10,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[nssf_validator],
+    )
+
+    # Contact & Banking
     telephone = models.CharField(
-        max_length=13, unique=True, null=True, blank=True, validators=[phone_validator]
-    )
-    bank_name = models.CharField(max_length=100, blank=True, null=True)
-    bank_account_number = models.CharField(
-        max_length=14, unique=True, blank=True, null=True, validators=[bank_account_validator]
+        max_length=13,
+        unique=True,
+        null=True,
+        blank=True,
+        validators=[phone_validator],
     )
 
-    # -------------------------
-    # Audit
-    # -------------------------
+    bank_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+
+    bank_account_number = models.CharField(
+        max_length=14,
+        unique=True,
+        blank=True,
+        null=True,
+        validators=[bank_account_validator],
+    )
+
+    # Audit Fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -105,11 +117,17 @@ class Employee(models.Model):
 
     @property
     def full_name(self):
+        """Return employee's full name."""
         return " ".join(filter(None, [self.first_name, self.middle_name, self.last_name]))
 
     def save(self, *args, **kwargs):
-        self.kra_pin = self.kra_pin.upper()
-        self.sha_number = self.sha_number.upper()
+        """Convert identifier fields to uppercase before saving."""
+        if self.kra_pin:
+            self.kra_pin = self.kra_pin.upper()
+
+        if self.sha_number:
+            self.sha_number = self.sha_number.upper()
+
         super().save(*args, **kwargs)
 
     def __str__(self):

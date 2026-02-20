@@ -11,7 +11,9 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   async (config) => {
-    const token = localStorage.getItem('accessToken');
+   const token = localStorage.getItem('accessToken') ||
+  sessionStorage.getItem('accessToken');
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,7 +27,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken =localStorage.getItem('refreshToken') ||
+  sessionStorage.getItem('refreshToken');
+
 
     if (
       error.response &&
@@ -39,7 +43,12 @@ api.interceptors.response.use(
           refresh: refreshToken,
         });
         const newAccessToken = res.data.access;
-        localStorage.setItem('accessToken', newAccessToken);
+        if (localStorage.getItem('refreshToken')) {
+  localStorage.setItem('accessToken', newAccessToken);} 
+  else {
+  sessionStorage.setItem('accessToken', newAccessToken);
+}
+
 
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;

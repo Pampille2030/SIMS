@@ -1,31 +1,30 @@
-// src/Utils/withRole.js
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode'; // ✅ Default import
+import { jwtDecode } from 'jwt-decode';
 
 const withRole = (Component, allowedRoles = []) => {
   return (props) => {
-    const token = localStorage.getItem('accessToken');
+    const token =
+      localStorage.getItem('accessToken') ||
+      sessionStorage.getItem('accessToken');
 
     if (!token) {
-      console.warn('⛔ No token found → redirecting to /login');
+      console.warn(' No token found → redirecting to /login');
       return <Navigate to="/login" replace />;
     }
 
     try {
       const decoded = jwtDecode(token);
-      const userRole = decoded.role;
-      console.log('🔐 Decoded role:', userRole);
 
-      if (allowedRoles.includes(userRole)) {
-        console.log('✅ Access granted to:', userRole);
+      const userRole = decoded.role?.toLowerCase();
+      const allowed = allowedRoles.map(r => r.toLowerCase());
+
+      if (allowed.includes(userRole)) {
         return <Component {...props} />;
       } else {
-        console.warn('🚫 Role not allowed:', userRole);
         return <Navigate to="/unauthorized" replace />;
       }
     } catch (error) {
-      console.error('❌ JWT decoding failed:', error);
       return <Navigate to="/login" replace />;
     }
   };

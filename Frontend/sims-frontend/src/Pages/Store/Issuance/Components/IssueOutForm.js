@@ -152,73 +152,78 @@ const IssueOutForm = ({
       )}
 
       {/* Vehicle Fuel Form */}
-      {formType === 'fuel' && fuelSubType === 'vehicle' && (
-        <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-          <SearchableSelect
-            label="Vehicle"
-            value={formData.vehicleId || ''}
-            onChange={handleSelectChange('vehicleId')}
-            options={vehicleOptions}
-            required
-            placeholder="Select vehicle..."
-            filterBy={['vehicleName', 'plateNumber', 'name']}
-          />
+{formType === 'fuel' && fuelSubType === 'vehicle' && (
+  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    
+    <SearchableSelect
+      label="Vehicle"
+      value={formData.vehicleId || ''}
+      onChange={handleSelectChange('vehicleId')}
+      options={vehicleOptions}
+      required
+      placeholder="Select vehicle..."
+      filterBy={['vehicleName', 'plateNumber', 'name']}
+    />
 
-          {/* Current Odometer Input */}
-          <div>
-            <label className="block text-white mb-1">Current Odometer (km)</label>
-            <input
-              type="number"
-              name="currentOdometer"
-              value={formData.currentOdometer || ''}
-              onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
-              required
-              min="0"
-              step="0.1"  // Changed from step="1" to allow decimals
-              placeholder="Enter current odometer"
-            />
-          </div>
+    {/* Current Odometer */}
+    <div>
+      <label className="block text-white mb-1">Current Odometer (km)</label>
+      <input
+        type="number"
+        name="currentOdometer"
+        value={formData.currentOdometer || ''}
+        onChange={handleChange}
+        className="w-full border rounded px-3 py-2"
+        required
+        min="0"
+        step="0.1"
+        placeholder="Enter current odometer"
+      />
+    </div>
 
-          <div>
-            <label className="block text-white mb-1">Fuel (Litres)</label>
-            <input
-              type="number"
-              name="fuelLitres"
-              value={formData.fuelLitres || ''}
-              onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
-              required
-              min="0.1"
-              step="0.1"
-              placeholder="Enter litres"
-            />
-          </div>
+    {/* Fuel Litres */}
+    <div>
+      <label className="block text-white mb-1">Fuel (Litres)</label>
+      <input
+        type="number"
+        name="fuelLitres"
+        value={formData.fuelLitres || ''}
+        onChange={handleChange}
+        className="w-full border rounded px-3 py-2"
+        required
+        min="0.1"
+        step="0.1"
+        placeholder="Enter litres"
+      />
+    </div>
 
-          <SearchableSelect
-            label="Issued To"
-            value={formData.employeeId || ''}
-            onChange={handleSelectChange('employeeId')}
-            options={employeeOptions}
-            required
-            placeholder="Select employee..."
-            filterBy={['fullName', 'jobNumber', 'name']}
-          />
+    <SearchableSelect
+      label="Issued To"
+      value={formData.employeeId || ''}
+      onChange={handleSelectChange('employeeId')}
+      options={employeeOptions}
+      required
+      placeholder="Select employee..."
+      filterBy={['fullName', 'jobNumber', 'name']}
+    />
 
-          <div>
-            <label className="block text-white mb-1">Reason</label>
-            <input
-              type="text"
-              name="reason"
-              value={formData.reason || ''}
-              onChange={handleChange}
-              className="w-full border rounded px-3 py-2"
-              required
-              placeholder="Purpose of issuance"
-            />
-          </div>
-        </div>
-      )}
+    {/* Reason */}
+    <div>
+      <label className="block text-white mb-1">Reason</label>
+      <input
+        type="text"
+        name="reason"
+        value={formData.reason || ''}
+        onChange={handleChange}
+        className="w-full border rounded px-3 py-2"
+        required
+        placeholder="Purpose of issuance"
+      />
+    </div>
+
+  </div>
+)}
+
 
       {/* Machine Fuel Form */}
       {formType === 'fuel' && fuelSubType === 'machine' && (

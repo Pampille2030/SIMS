@@ -6,7 +6,7 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
   const [items, setItems] = useState([
     {
       itemId: "",
-      quantity: 1,
+      quantity: "", // Updated: start empty
       reason: "",
       suppliers: [
         { supplier_name: "", amount_per_unit: "", invoice: null, id: null, uploaded_invoice_url: null, order_id: null },
@@ -17,6 +17,10 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
   const [availableItems, setAvailableItems] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // New states for success/error messages
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
   // Fetch inventory items excluding vehicles
   useEffect(() => {
     const fetchItems = async () => {
@@ -26,27 +30,29 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
         setAvailableItems(filteredItems);
       } catch (err) {
         console.error("Failed to fetch items:", err);
+        setErrorMessage("Failed to fetch inventory items.");
       }
     };
     fetchItems();
   }, []);
 
-  // Update item-level field
   const handleItemChange = (index, e) => {
     const { name, value } = e.target;
     const updated = [...items];
-    updated[index][name] = name === "quantity" ? Math.max(1, parseInt(value) || 1) : value;
+    if (name === "quantity") {
+      updated[index][name] = value; // Allow empty input
+    } else {
+      updated[index][name] = value;
+    }
     setItems(updated);
   };
 
-  // Update supplier-level field
   const handleSupplierChange = (itemIndex, supplierIndex, field, value) => {
     const updated = [...items];
     updated[itemIndex].suppliers[supplierIndex][field] = value;
     setItems(updated);
   };
 
-  // Upload invoice immediately after file selection (if order exists)
   const handleInvoiceChange = async (itemIndex, supplierIndex, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -70,14 +76,15 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
 
       supplier.uploaded_invoice_url = res.data.invoice_url;
       setItems(updated);
-      alert(`✅ Invoice uploaded for supplier ${supplier.supplier_name}`);
+      setSuccessMessage(`Invoice uploaded for supplier ${supplier.supplier_name}`);
+      setErrorMessage("");
     } catch (err) {
       console.error("Invoice upload failed:", err);
-      alert("❌ Failed to upload invoice");
+      setErrorMessage("Failed to upload invoice");
+      setSuccessMessage("");
     }
   };
 
-  // Add/remove supplier
   const addSupplier = (itemIndex) => {
     const updated = [...items];
     updated[itemIndex].suppliers.push({
@@ -90,19 +97,19 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
     });
     setItems(updated);
   };
+
   const removeSupplier = (itemIndex, supplierIndex) => {
     const updated = [...items];
     updated[itemIndex].suppliers.splice(supplierIndex, 1);
     setItems(updated);
   };
 
-  // Add/remove item
   const addItem = () => {
     setItems([
       ...items,
       {
         itemId: "",
-        quantity: 1,
+        quantity: "", // Updated: start empty
         reason: "",
         suppliers: [
           { supplier_name: "", amount_per_unit: "", invoice: null, id: null, uploaded_invoice_url: null, order_id: null },
@@ -110,11 +117,11 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
       },
     ]);
   };
+
   const removeItem = (index) => {
     if (items.length > 1) setItems(items.filter((_, i) => i !== index));
   };
 
-  // Validate invoices before submission
   const validateInvoices = () => {
     for (const item of items) {
       for (const supplier of item.suppliers) {
@@ -124,11 +131,22 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
     return true;
   };
 
-  // Submit purchase order
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSuccessMessage("");
+    setErrorMessage("");
+
+    // Validate quantity
+    for (const item of items) {
+      const quantity = parseFloat(item.quantity);
+      if (!item.quantity || isNaN(quantity) || quantity <= 0) {
+        setErrorMessage(`Quantity for item "${item.itemId || "unnamed"}" must be greater than 0.`);
+        return;
+      }
+    }
+
     if (!validateInvoices()) {
-      alert("❌ Please select invoices for all suppliers. Invoices are mandatory.");
+      setErrorMessage("Please select invoices for all suppliers. Invoices are mandatory.");
       return;
     }
 
@@ -139,7 +157,7 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
         notes: "Generated from frontend form",
         items: items.map((item) => ({
           item: parseInt(item.itemId),
-          quantity: parseInt(item.quantity),
+          quantity: parseFloat(item.quantity),
           reason: item.reason,
           suppliers: item.suppliers.map((s) => ({
             supplier_name: s.supplier_name,
@@ -182,13 +200,14 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
         }
       }
 
-      alert("✅ Purchase Order submitted successfully with all invoices!");
+      setSuccessMessage("Purchase order has been submitted successfully!");
+      setErrorMessage("");
 
       // Reset form
       setItems([
         {
           itemId: "",
-          quantity: 1,
+          quantity: "",
           reason: "",
           suppliers: [
             { supplier_name: "", amount_per_unit: "", invoice: null, id: null, uploaded_invoice_url: null, order_id: null },
@@ -198,7 +217,8 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
       setOrderType("");
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to submit order: " + (err.message || "Unknown error"));
+      setErrorMessage("Failed to submit order: " + (err.message || "Unknown error"));
+      setSuccessMessage("");
     } finally {
       setIsSubmitting(false);
     }
@@ -207,6 +227,15 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
   return (
     <div className="p-4 mt-20">
       <h2 className="text-2xl font-semibold mb-6">Create Purchase Order</h2>
+
+      {/* Success & Error Messages */}
+      {successMessage && (
+        <div className="bg-green-100 text-green-800 p-3 mb-4 rounded">{successMessage}</div>
+      )}
+      {errorMessage && (
+        <div className="bg-red-100 text-red-800 p-3 mb-4 rounded">{errorMessage}</div>
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="space-y-6 bg-[#4B553A] p-6 rounded shadow text-white"
@@ -214,7 +243,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
         {items.map((item, index) => (
           <div key={index} className="border-t pt-4 space-y-4">
             <h3 className="text-lg font-medium">Item #{index + 1}</h3>
-
             {/* Order Type, Item, Quantity, Reason */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
@@ -227,10 +255,9 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                 >
                   <option value="">Select Type</option>
                   <option value="reorder">Reorder</option>
-                  <option value="accumulate">Accumulate</option>
+                  <option value="accumulate">New Order</option>
                 </select>
               </div>
-
               <div>
                 <label className="block font-medium mb-1">Item *</label>
                 <select
@@ -248,20 +275,20 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block font-medium mb-1">Quantity *</label>
                 <input
                   type="number"
                   name="quantity"
-                  min={1}
                   value={item.quantity}
                   onChange={(e) => handleItemChange(index, e)}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-black"
+                  placeholder="Enter quantity"
+                  step="0.01"
+                  min="0"
                   required
                 />
               </div>
-
               <div>
                 <label className="block font-medium mb-1">Reason *</label>
                 <input
@@ -295,7 +322,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                       required
                     />
                   </div>
-
                   <div>
                     <label className="block font-medium mb-1">Amount Per Unit *</label>
                     <input
@@ -310,7 +336,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                       required
                     />
                   </div>
-
                   <div>
                     <label className="block font-medium mb-1 text-yellow-300">Invoice *</label>
                     <input
@@ -333,7 +358,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                       </p>
                     )}
                   </div>
-
                   <div>
                     <label className="block font-medium mb-1 invisible">Actions</label>
                     <div className="flex space-x-2">
@@ -350,7 +374,6 @@ const PurchaseOrderPage = ({ onSubmitOrder }) => {
                   </div>
                 </div>
               ))}
-
               <button
                 type="button"
                 onClick={() => addSupplier(index)}

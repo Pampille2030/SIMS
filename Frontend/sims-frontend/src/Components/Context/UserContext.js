@@ -4,31 +4,37 @@ const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load from localStorage when app opens
   useEffect(() => {
-    const savedUser = JSON.parse(localStorage.getItem('user'));
-    if (savedUser) setUser(savedUser);
+    const savedUser =
+      localStorage.getItem('user') ||
+      sessionStorage.getItem('user');
+
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
+    setLoading(false); // VERY IMPORTANT
   }, []);
 
-  // Login: save to memory + localStorage
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  // Logout: clear memory + localStorage
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    localStorage.clear();
+    sessionStorage.clear();
   };
 
   return (
-    <UserContext.Provider value={{ user, login, logout }}>
+    <UserContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </UserContext.Provider>
   );
 };
+
 
 // To use anywhere in your app
 export const useUser = () => useContext(UserContext);

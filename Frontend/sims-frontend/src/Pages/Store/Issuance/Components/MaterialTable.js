@@ -64,8 +64,8 @@ const MaterialTable = ({
             <th className="border px-3 py-2">Quantity</th>
             <th className="border px-3 py-2">Issued To</th>
             <th className="border px-3 py-2">Reason</th>
-            <th className="border px-3 py-2">Approval</th>
-            <th className="border px-3 py-2">Status</th>
+            <th className="border px-3 py-2">Md Approval</th>
+            <th className="border px-3 py-2">Issue Status</th>
             <th className="border px-3 py-2">Actions</th>
           </tr>
         </thead>

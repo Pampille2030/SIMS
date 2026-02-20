@@ -1,6 +1,8 @@
 // src/App.js
-
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
+import withRole from "./Utils/withRole";
 
 // General / Auth
 import Login from "./Pages/General/Login";
@@ -30,73 +32,151 @@ import ApproveEmployees from "./Pages/MDirector/ApproveEmployees";
 import VehicleFuelApprovalPage from "./Pages/MDirector/VehicleFuelApproval";
 import MDPORequestPage from "./Pages/MDirector/POrequest";
 
-// Accounts Manager Page
+// Accounts Manager Pages
 import ACPurchaseOrderApproval from "./Pages/AccountsM/PurchaseOrderPanyment";
+import RegisterEmployee from "./Pages/AccountsM/AddEmployee";
 
-// LIVESTOCK MANAGER
+// Livestock Manager
 import LivestockDefinitionPage from "./Pages/LiveStockManager/AddCategory";
 
-// HR Pages
-import RegisterEmployee from "./Pages/HR/AddEmployee";
-import AttendanceMark from "./Pages/HR/Attendance";
+// ---------------------------
+// Role-Protected Pages
+// ---------------------------
 
+// Store Manager
+const IssueOutPageProtected = withRole(IssueOutPage, ["storemanager"]);
+const StockInPageProtected = withRole(StockInPage, ["storemanager"]);
+const ReturnedItemPageProtected = withRole(ReturnedItemPage, ["storemanager"]);
+const NewItemPageProtected = withRole(NewItemPage, ["storemanager"]);
+const PurchaseOrderContainerProtected = withRole(PurchaseOrderContainer, ["storemanager"]);
+const PurchaseOrderRequestPageProtected = withRole(PurchaseOrderRequestPage, ["storemanager"]);
+
+// Reports (accessible by SM, MD, AC)
+const InventoryStockPageProtected = withRole(InventoryStockPage, [
+  "storemanager",
+  "managingdirector",
+  "accountsmanager",
+]);
+const ReportsPageProtected = withRole(ReportsPage, [
+  "storemanager",
+  "managingdirector",
+  "accountsmanager",
+]);
+const WriteReportPageProtected = withRole(WriteReportPage, [
+  "storemanager",
+  "managingdirector",
+  "accountsmanager",
+]);
+const GeneralReportsPageProtected = withRole(GeneralReportsPage, [
+  "storemanager",
+  "managingdirector",
+  "accountsmanager",
+]);
+
+// Managing Director
+const MDApprovalPageProtected = withRole(MDApprovalPage, ["managingdirector"]);
+const IssueOutApprovalPageProtected = withRole(IssueOutApprovalPage, ["managingdirector"]);
+const ApproveEmployeesProtected = withRole(ApproveEmployees, ["managingdirector"]);
+const VehicleFuelApprovalPageProtected = withRole(VehicleFuelApprovalPage, ["managingdirector"]);
+const MDPORequestPageProtected = withRole(MDPORequestPage, ["managingdirector"]);
+
+// Accounts Manager
+const ACPurchaseOrderApprovalProtected = withRole(ACPurchaseOrderApproval, ["accountsmanager"]);
+const RegisterEmployeeProtected = withRole(RegisterEmployee, ["accountsmanager"]);
+
+// Livestock Manager
+const LivestockDefinitionPageProtected = withRole(LivestockDefinitionPage, ["livestockmanager"]);
+
+// ---------------------------
+// Token Expiration Check
+// ---------------------------
+const TokenChecker = ({ children }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkToken = () => {
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        try {
+          const decoded = jwtDecode(token);
+          if (Date.now() > decoded.exp * 1000) {
+            localStorage.clear();
+            navigate("/login");
+          }
+        } catch (error) {
+          localStorage.clear();
+          navigate("/login");
+        }
+      }
+    };
+
+    checkToken();
+    const interval = setInterval(checkToken, 5000);
+    return () => clearInterval(interval);
+  }, [navigate]);
+
+  return <>{children}</>;
+};
+
+// ---------------------------
+// App Component
+// ---------------------------
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgotpassword" element={<ForgotPassword />} />
-        <Route path="/unauthorized" element={<Unauthorized />} />
+      <TokenChecker>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
-        {/* Protected Routes */}
-        <Route path="/" element={<Layout />}>
-          {/* ✅ Store Manager ONLY */}
-          <Route index element={<IssueOutPage />} />
-          <Route path="inventory/issue-out" element={<IssueOutPage />} />
-          <Route path="inventory/stock-in" element={<StockInPage />} />
-          <Route path="inventory/return-item" element={<ReturnedItemPage />} />
-          <Route path="inventory/newitem" element={<NewItemPage />} />
-          <Route path="inventory/purchase-order" element={<PurchaseOrderContainer />} />
-          <Route path='purchaserequest' element={<PurchaseOrderRequestPage/>}/>
+          {/* Protected Routes */}
+          <Route path="/" element={<Layout />}>
+            {/* Store Manager */}
+            <Route index element={<IssueOutPageProtected />} />
+            <Route path="inventory/issue-out" element={<IssueOutPageProtected />} />
+            <Route path="inventory/stock-in" element={<StockInPageProtected />} />
+            <Route path="inventory/return-item" element={<ReturnedItemPageProtected />} />
+            <Route path="inventory/newitem" element={<NewItemPageProtected />} />
+            <Route path="inventory/purchase-order" element={<PurchaseOrderContainerProtected />} />
+            <Route path="purchaserequest" element={<PurchaseOrderRequestPageProtected />} />
 
-          {/* 📦 Inventory Stock check */}
-          <Route path="inventory/stock" element={<InventoryStockPage />} />
+            {/* Reports (SM, MD, AC) */}
+            <Route path="inventory/stock" element={<InventoryStockPageProtected />} />
+            <Route path="reports" element={<ReportsPageProtected />} />
+            <Route path="reports/write" element={<WriteReportPageProtected />} />
+            <Route path="General/reports" element={<GeneralReportsPageProtected />} />
 
-          {/* Reports */}
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="reports/write" element={<WriteReportPage />} />
-          <Route path="General/reports" element={<GeneralReportsPage />} />
-          <Route path="Notifications" element={<NotificationsPage />} />
+            {/* Managing Director */}
+            <Route path="orderapproval" element={<MDApprovalPageProtected />} />
+            <Route path="issueoutApproval" element={<IssueOutApprovalPageProtected />} />
+            <Route path="EmployeeApproval" element={<ApproveEmployeesProtected />} />
+            <Route path="VehicleFuelApproval" element={<VehicleFuelApprovalPageProtected />} />
+            <Route path="PORequest" element={<MDPORequestPageProtected />} />
 
-          {/* Managing Director */}
-          <Route path="orderapproval" element={<MDApprovalPage />} />
-          <Route path="issueoutApproval" element={<IssueOutApprovalPage />} />
-          <Route path="EmployeeApproval" element={<ApproveEmployees />} />
-          <Route path="VehicleFuelApproval" element={<VehicleFuelApprovalPage />} />
-          <Route path="PORequest" element={<MDPORequestPage />} />
+            {/* Accounts Manager */}
+            <Route path="payment" element={<ACPurchaseOrderApprovalProtected />} />
+            <Route path="accounts/employees/add" element={<RegisterEmployeeProtected />} />
 
-          {/* Accounts */}
-          <Route path="payment" element={<ACPurchaseOrderApproval />} />
+            {/* Livestock Manager */}
+            <Route path="livestock/definition" element={<LivestockDefinitionPageProtected />} />
 
-          {/* HR */}
-          <Route path="hr/employees/add" element={<RegisterEmployee />} />
-          <Route path="hr/attendance" element={<AttendanceMark />} />
+            {/* Shared / General */}
+            <Route path="Notifications" element={<NotificationsPage />} />
 
-          {/* ✅ Livestock Manager */}
-          <Route path="livestock/definition" element={<LivestockDefinitionPage />} />
-
-          {/* Fallback */}
-          <Route
-            path="*"
-            element={
-              <div className="p-20 text-center text-xl text-gray-500">
-                404 - Page Not Found
-              </div>
-            }
-          />
-        </Route>
-      </Routes>
+            {/* Fallback */}
+            <Route
+              path="*"
+              element={
+                <div className="p-20 text-center text-xl text-gray-500">
+                  404 - Page Not Found
+                </div>
+              }
+            />
+          </Route>
+        </Routes>
+      </TokenChecker>
     </Router>
   );
 }

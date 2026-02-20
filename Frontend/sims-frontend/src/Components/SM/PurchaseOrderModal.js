@@ -1,4 +1,5 @@
-import React from 'react';
+// src/Components/SM/PurchaseOrderModal.js
+import React, { useState, useEffect } from 'react';
 import { FaCheck } from 'react-icons/fa';
 
 const PurchaseOrderModal = ({
@@ -8,10 +9,30 @@ const PurchaseOrderModal = ({
   onConfirmDelivery,
   onDownloadInvoice
 }) => {
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Hooks must always run
+  useEffect(() => {
+    if (selectedOrder) {
+      setSuccessMessage("");
+    }
+  }, [selectedOrder]);
+
+  const handleConfirmDelivery = async () => {
+    if (!selectedOrder?.can_approve_order) return;
+
+    try {
+      await onConfirmDelivery(selectedOrder.id);
+      setSuccessMessage("The goods have been successfully delivered!");
+    } catch (err) {
+      console.error("Delivery confirmation failed:", err);
+    }
+  };
+
+  // Early return moved **after hooks**
   if (!show || !selectedOrder) return null;
 
   const items = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
-
   const canDeliver = selectedOrder.can_approve_order;
 
   return (
@@ -28,6 +49,14 @@ const PurchaseOrderModal = ({
             ✕
           </button>
         </div>
+
+        {/* SUCCESS MESSAGE */}
+        {successMessage && (
+          <div className="mb-4 p-3 rounded bg-green-100 text-green-800 font-semibold flex items-center gap-2">
+            <FaCheck className="text-green-600" />
+            {successMessage}
+          </div>
+        )}
 
         {/* Order Info */}
         <div className="mb-4 text-sm text-gray-600 grid grid-cols-2 gap-4">
@@ -85,7 +114,7 @@ const PurchaseOrderModal = ({
         {/* Footer Actions */}
         <div className="mt-6 flex justify-end gap-3 border-t pt-3">
           <button
-            onClick={() => canDeliver && onConfirmDelivery(selectedOrder.id)}
+            onClick={handleConfirmDelivery}
             className={`px-4 py-2 rounded text-white ${
               canDeliver ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
             }`}
